@@ -3,7 +3,7 @@
 A launcher for your self-hosted things. One page of icon tiles, editable in the
 browser, that keeps working when the things it links to do not.
 
-![Porchlight](docs/screenshot.png)
+![Porchlight](docs/screenshot.jpg)
 
 Most dashboards render by talking to everything they show — API tokens, health
 probes, status widgets. That is genuinely useful right up until something breaks,
@@ -67,7 +67,14 @@ apps.example.com {
 
 ## Adding services
 
-Click the sliders icon, top right → **Edit page…**
+Click the sliders icon, top right. Layout, sort, tile size, spacing and the
+background dimmer live there, per browser:
+
+![Layout controls](docs/layout.jpg)
+
+**Edit page…** turns the grid into an editor:
+
+![Editing](docs/editor.jpg)
 
 ![The catalogue picker](docs/catalogue.png)
 
