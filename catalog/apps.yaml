@@ -470,6 +470,12 @@ categories:
   - name: Tandoor
     icon: tandoor-recipes
     port: 8080
+  - name: ArmoryHub
+    icon: armoryhub
+    # dashboard-icons carries no first-party app, so this entry brings its own
+    # mark. Any `url` here is fetched at build time and stored locally like the
+    # rest — it is never hot-linked from the page.
+    url: https://armoryhub.app/icon.svg
   - name: Homebox
     icon: homebox
     port: 7745

@@ -217,7 +217,19 @@ other. Backing up is one tarball of `data/`.
 ## Contributing
 
 The most useful contribution is **an app the catalogue is missing**. Add it to
-`catalog/apps.yaml` with its usual port, then:
+`catalog/apps.yaml` with its usual port:
+
+```yaml
+- name: Sonarr
+  icon: sonarr            # a dashboard-icons slug
+  port: 8989
+- name: Some App
+  icon: some-app
+  ext: png                # only if upstream has no .svg
+  url: https://someapp.example/icon.svg   # only if upstream has no icon at all
+```
+
+Then:
 
 ```bash
 python3 catalog/validate.py

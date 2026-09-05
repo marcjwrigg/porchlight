@@ -174,7 +174,9 @@ def write_catalog(prefetch):
     if prefetch:
         for cat in cats:
             for app in cat.get("apps") or []:
-                url = (ICON_PNG if app.get("ext") == "png" else ICON_CDN).format(app["icon"])
+                url = app.get("url") or (
+                    ICON_PNG if app.get("ext") == "png" else ICON_CDN
+                ).format(app["icon"])
                 try:
                     fetch_icon(app["icon"], False, url)
                 except Exception as exc:
@@ -880,6 +882,7 @@ EDITOR_JS = """
     // fully offline, and there is no reason to go out for what is local.
     var local = BOOT.iconFiles[app.icon];
     if (local) return 'icons/' + local;
+    if (app.url) return app.url;
     return (app.ext === 'png' ? ICON_CDN_PNG : ICON_CDN_SVG) + app.icon +
            (app.ext === 'png' ? '.png' : '.svg');
   }
@@ -912,7 +915,8 @@ EDITOR_JS = """
           hits++;
           html += '<button type="button" class="pick" data-icon="' + esc(a.icon) + '"' +
             ' data-name="' + esc(a.name).replace(/"/g, '&quot;') + '"' +
-            ' data-ext="' + esc(a.ext || '') + '" data-port="' + (a.port || '') + '">' +
+            ' data-ext="' + esc(a.ext || '') + '" data-port="' + (a.port || '') + '"' +
+            ' data-url="' + esc(a.url || '') + '">' +
             '<img src="' + catalogIconUrl(a) + '" alt="" loading="lazy" ' +
             'data-letters="' + initials(a.name) + '">' +
             '<span>' + esc(a.name) + '</span>' +
@@ -957,7 +961,8 @@ EDITOR_JS = """
       var b = ev.target.closest('.pick');
       if (!b) return;
       var pre = { name: b.dataset.name, icon: b.dataset.icon, port: b.dataset.port };
-      if (b.dataset.ext === 'png') pre.icon_url = ICON_CDN_PNG + b.dataset.icon + '.png';
+      if (b.dataset.url) pre.icon_url = b.dataset.url;
+      else if (b.dataset.ext === 'png') pre.icon_url = ICON_CDN_PNG + b.dataset.icon + '.png';
       dlg.returnValue = 'cancel';
       dlg.close();
       editService(gi, -1, pre);

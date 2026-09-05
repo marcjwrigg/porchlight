@@ -9,6 +9,7 @@ app, which is a bad way to find out.
 
 Checks, against homarr-labs/dashboard-icons:
   * every `icon` resolves as .svg, or as .png when `ext: png` is set
+  * an entry with its own `url` serves a 200 from that URL
   * `ext: png` is present exactly when there is no .svg
   * no duplicate app names, no empty categories
 """
@@ -44,6 +45,16 @@ def main():
             names[name] = cat.get("name")
             if not slug:
                 problems.append(f"{where}: no icon slug")
+                continue
+            if app.get("url"):
+                # Brings its own artwork — dashboard-icons has no opinion on it,
+                # so check the URL actually serves instead of the slug.
+                try:
+                    with urllib.request.urlopen(app["url"], timeout=20) as r:
+                        if r.status != 200:
+                            problems.append(f"{where}: {app['url']} returned HTTP {r.status}")
+                except Exception as exc:
+                    problems.append(f"{where}: {app['url']} unreachable ({exc})")
                 continue
             if ext == "png":
                 if slug not in png:
