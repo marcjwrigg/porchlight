@@ -18,7 +18,9 @@ PORT=${PORCHLIGHT_PORT:-8088}
 HTTP_PORT=${PORCHLIGHT_HTTP_PORT:-80}
 SRC=$(cd "$(dirname "$0")" && pwd)
 
-[[ $EUID -eq 0 ]] || { echo "run me as root (sudo ./install.sh)"; exit 1; }
+# Root, not sudo: a minimal Debian image does not ship sudo, and this is very
+# often run in a container shell that is root already.
+[[ $EUID -eq 0 ]] || { echo "run me as root — 'sudo -i' first, then ./install.sh"; exit 1; }
 
 echo "==> packages"
 export DEBIAN_FRONTEND=noninteractive
