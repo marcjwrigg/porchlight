@@ -1,0 +1,14 @@
+# Your instance, not the project.
+config.yaml
+public/
+icons/
+bg/
+backup/
+token
+
+__pycache__/
+*.pyc
+.DS_Store
+
+# Test artefacts from running out of a checkout
+data/

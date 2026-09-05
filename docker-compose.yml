@@ -1,0 +1,12 @@
+services:
+  porchlight:
+    build: .
+    # image: ghcr.io/marcjwrigg/porchlight:latest
+    container_name: porchlight
+    restart: unless-stopped
+    ports:
+      - "8085:80"
+    volumes:
+      # Your config, icons, backgrounds, backups and edit token. Without this
+      # every edit dies with the container.
+      - ./data:/data

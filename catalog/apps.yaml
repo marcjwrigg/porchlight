@@ -1,0 +1,651 @@
+categories:
+- name: Media
+  apps:
+  - name: Plex
+    icon: plex
+    port: 32400
+  - name: Jellyfin
+    icon: jellyfin
+    port: 8096
+  - name: Emby
+    icon: emby
+    port: 8096
+  - name: Kodi
+    icon: kodi
+    port: 8080
+  - name: Navidrome
+    icon: navidrome
+    port: 4533
+  - name: Audiobookshelf
+    icon: audiobookshelf
+    port: 13378
+  - name: Kavita
+    icon: kavita
+    port: 5000
+  - name: Komga
+    icon: komga
+    port: 25600
+  - name: Calibre-Web
+    icon: calibre-web
+    port: 8083
+  - name: Immich
+    icon: immich
+    port: 2283
+  - name: PhotoPrism
+    icon: photoprism
+    port: 2342
+  - name: Piwigo
+    icon: piwigo
+    port: 80
+  - name: Stash
+    icon: stash
+    port: 9999
+  - name: Tautulli
+    icon: tautulli
+    port: 8181
+  - name: Overseerr
+    icon: overseerr
+    port: 5055
+  - name: Jellyseerr
+    icon: jellyseerr
+    port: 5055
+  - name: Ombi
+    icon: ombi
+    port: 3579
+  - name: Funkwhale
+    icon: funkwhale
+    port: 5000
+  - name: Airsonic
+    icon: airsonic
+    port: 4040
+  - name: Lyrion Music Server
+    icon: lyrion
+    port: 9000
+- name: Downloads
+  apps:
+  - name: Sonarr
+    icon: sonarr
+    port: 8989
+  - name: Radarr
+    icon: radarr
+    port: 7878
+  - name: Lidarr
+    icon: lidarr
+    port: 8686
+  - name: Readarr
+    icon: readarr
+    port: 8787
+  - name: Bazarr
+    icon: bazarr
+    port: 6767
+  - name: Prowlarr
+    icon: prowlarr
+    port: 9696
+  - name: Jackett
+    icon: jackett
+    port: 9117
+  - name: NZBHydra2
+    icon: nzbhydra2
+    port: 5076
+  - name: SABnzbd
+    icon: sabnzbd
+    port: 8080
+  - name: NZBGet
+    icon: nzbget
+    port: 6789
+  - name: qBittorrent
+    icon: qbittorrent
+    port: 8080
+  - name: Transmission
+    icon: transmission
+    port: 9091
+  - name: Deluge
+    icon: deluge
+    port: 8112
+  - name: ruTorrent
+    icon: rutorrent
+    port: 8080
+  - name: AriaNg
+    icon: ariang
+    ext: png
+    port: 6880
+  - name: pyLoad
+    icon: pyload
+    port: 8000
+  - name: FlareSolverr
+    icon: flaresolverr
+    port: 8191
+  - name: Autobrr
+    icon: autobrr
+    port: 7474
+- name: Home automation
+  apps:
+  - name: Home Assistant
+    icon: home-assistant
+    port: 8123
+  - name: Node-RED
+    icon: node-red
+    port: 1880
+  - name: ESPHome
+    icon: esphome
+    port: 6052
+  - name: Zigbee2MQTT
+    icon: zigbee2mqtt
+    port: 8080
+  - name: Z-Wave JS UI
+    icon: z-wave-js-ui
+    port: 8091
+  - name: Mosquitto
+    icon: mosquitto
+    port: 9001
+  - name: Frigate
+    icon: frigate
+    port: 5000
+  - name: Scrypted
+    icon: scrypted
+    ext: png
+    port: 10443
+  - name: MotionEye
+    icon: motioneye
+    port: 8765
+  - name: Shinobi
+    icon: shinobi
+    ext: png
+    port: 8080
+  - name: openHAB
+    icon: openhab
+    port: 8080
+  - name: Domoticz
+    icon: domoticz
+    ext: png
+    port: 8080
+  - name: Homebridge
+    icon: homebridge
+    port: 8581
+- name: Network
+  apps:
+  - name: AdGuard Home
+    icon: adguard-home
+    port: 3000
+  - name: Pi-hole
+    icon: pi-hole
+    port: 80
+  - name: Technitium
+    icon: technitium
+    ext: png
+    port: 5380
+  - name: Unbound
+    icon: unbound
+  - name: Traefik
+    icon: traefik
+    port: 8080
+  - name: Caddy
+    icon: caddy
+    port: 2019
+  - name: Nginx Proxy Manager
+    icon: nginx-proxy-manager
+    port: 81
+  - name: HAProxy
+    icon: haproxy
+    port: 8404
+  - name: Authelia
+    icon: authelia
+    port: 9091
+  - name: Authentik
+    icon: authentik
+    port: 9000
+  - name: Tinyauth
+    icon: tinyauth
+    port: 3000
+  - name: Keycloak
+    icon: keycloak
+    port: 8080
+  - name: Tailscale
+    icon: tailscale
+  - name: Headscale
+    icon: headscale
+    port: 8080
+  - name: WireGuard
+    icon: wireguard
+    port: 51820
+  - name: wg-gen-web
+    icon: wg-gen-web
+    ext: png
+    port: 8080
+  - name: OpenVPN
+    icon: openvpn
+    port: 943
+  - name: NetBird
+    icon: netbird
+  - name: ZeroTier
+    icon: zerotier
+  - name: pfSense
+    icon: pfsense
+    port: 443
+  - name: OPNsense
+    icon: opnsense
+    port: 443
+  - name: OpenWrt
+    icon: openwrt
+    port: 80
+  - name: UniFi
+    icon: unifi
+    port: 8443
+  - name: Omada
+    icon: omada
+    port: 8043
+  - name: Cloudflare
+    icon: cloudflare
+  - name: Speedtest Tracker
+    icon: speedtest-tracker
+    ext: png
+    port: 80
+  - name: Uptime Kuma
+    icon: uptime-kuma
+    port: 3001
+  - name: Gatus
+    icon: gatus
+    port: 8080
+  - name: Ntopng
+    icon: ntopng
+    ext: png
+    port: 3000
+- name: Monitoring
+  apps:
+  - name: Grafana
+    icon: grafana
+    port: 3000
+  - name: Prometheus
+    icon: prometheus
+    port: 9090
+  - name: Alertmanager
+    icon: alertmanager
+    port: 9093
+  - name: InfluxDB
+    icon: influxdb
+    port: 8086
+  - name: Loki
+    icon: loki
+    port: 3100
+  - name: Zabbix
+    icon: zabbix
+    port: 8080
+  - name: Netdata
+    icon: netdata
+    port: 19999
+  - name: Glances
+    icon: glances
+    port: 61208
+  - name: Graylog
+    icon: graylog
+    port: 9000
+  - name: Checkmk
+    icon: checkmk
+    port: 5000
+  - name: LibreNMS
+    icon: librenms
+    port: 8000
+  - name: Beszel
+    icon: beszel
+    port: 8090
+  - name: Dozzle
+    icon: dozzle
+    port: 8080
+  - name: Scrutiny
+    icon: scrutiny
+    port: 8080
+- name: Storage & files
+  apps:
+  - name: Nextcloud
+    icon: nextcloud
+    port: 443
+  - name: ownCloud
+    icon: owncloud
+    port: 8080
+  - name: Seafile
+    icon: seafile
+    port: 8000
+  - name: Syncthing
+    icon: syncthing
+    port: 8384
+  - name: File Browser
+    icon: filebrowser
+    port: 8080
+  - name: FileRun
+    icon: filerun
+    port: 80
+  - name: Duplicati
+    icon: duplicati
+    port: 8200
+  - name: Kopia
+    icon: kopia
+    port: 51515
+  - name: Rclone
+    icon: rclone
+    port: 5572
+  - name: MinIO
+    icon: minio
+    port: 9001
+  - name: TrueNAS
+    icon: truenas
+    port: 443
+  - name: Unraid
+    icon: unraid
+    port: 80
+  - name: OpenMediaVault
+    icon: openmediavault
+    port: 80
+  - name: Synology DSM
+    icon: synology
+    port: 5001
+  - name: Paperless-ngx
+    icon: paperless-ngx
+    port: 8000
+  - name: Stirling PDF
+    icon: stirling-pdf
+    port: 8080
+- name: Development
+  apps:
+  - name: Gitea
+    icon: gitea
+    port: 3000
+  - name: Forgejo
+    icon: forgejo
+    port: 3000
+  - name: GitLab
+    icon: gitlab
+    port: 80
+  - name: Jenkins
+    icon: jenkins
+    port: 8080
+  - name: Woodpecker CI
+    icon: woodpecker-ci
+    port: 8000
+  - name: Drone
+    icon: drone
+    ext: png
+    port: 80
+  - name: SonarQube
+    icon: sonarqube
+    port: 9000
+  - name: Harbor
+    icon: harbor
+    port: 80
+  - name: Portainer
+    icon: portainer
+    port: 9443
+  - name: Dockge
+    icon: dockge
+    port: 5001
+  - name: Watchtower
+    icon: watchtower
+    port: 8080
+  - name: Yacht
+    icon: yacht
+    port: 8000
+  - name: Rancher
+    icon: rancher
+    port: 443
+  - name: Proxmox
+    icon: proxmox
+    port: 8006
+  - name: Kubernetes
+    icon: kubernetes
+  - name: HashiCorp Vault
+    icon: vault
+    port: 8200
+  - name: Semaphore
+    icon: semaphore
+    port: 3000
+  - name: code-server
+    icon: code-server
+    ext: png
+    port: 8443
+  - name: Docker Registry
+    icon: docker
+    port: 5000
+  - name: n8n
+    icon: n8n
+    port: 5678
+- name: Productivity
+  apps:
+  - name: Vaultwarden
+    icon: vaultwarden-light
+    port: 80
+  - name: Bitwarden
+    icon: bitwarden
+    port: 8080
+  - name: Joplin
+    icon: joplin
+    port: 22300
+  - name: Trilium
+    icon: trilium
+    port: 8080
+  - name: Outline
+    icon: outline
+    port: 3000
+  - name: BookStack
+    icon: bookstack
+    port: 80
+  - name: Wiki.js
+    icon: wikijs
+    port: 3000
+  - name: DokuWiki
+    icon: dokuwiki
+    port: 80
+  - name: Vikunja
+    icon: vikunja
+    port: 3456
+  - name: Focalboard
+    icon: focalboard
+    port: 8000
+  - name: Planka
+    icon: planka
+    port: 3000
+  - name: Wekan
+    icon: wekan
+    port: 8080
+  - name: Kanboard
+    icon: kanboard
+    port: 80
+  - name: Baikal
+    icon: baikal
+    ext: png
+    port: 80
+  - name: Radicale
+    icon: radicale
+    port: 5232
+  - name: Firefly III
+    icon: firefly-iii
+    port: 8080
+  - name: Actual Budget
+    icon: actual-budget
+    port: 5006
+  - name: Grocy
+    icon: grocy
+    port: 9283
+  - name: Mealie
+    icon: mealie
+    port: 9000
+  - name: Tandoor
+    icon: tandoor-recipes
+    port: 8080
+  - name: Homebox
+    icon: homebox
+    port: 7745
+  - name: Snipe-IT
+    icon: snipe-it
+    ext: png
+    port: 80
+  - name: Kimai
+    icon: kimai
+    port: 8001
+  - name: NocoDB
+    icon: nocodb
+    port: 8080
+  - name: Baserow
+    icon: baserow
+    port: 80
+- name: Communication
+  apps:
+  - name: Matrix
+    icon: matrix
+    port: 8008
+  - name: Element
+    icon: element
+    port: 80
+  - name: Rocket.Chat
+    icon: rocket-chat
+    port: 3000
+  - name: Mattermost
+    icon: mattermost
+    port: 8065
+  - name: Jitsi
+    icon: jitsi-meet
+    port: 8443
+  - name: Mumble
+    icon: mumble
+    port: 64738
+  - name: Discourse
+    icon: discourse
+    port: 80
+  - name: Mailcow
+    icon: mailcow
+    port: 443
+  - name: Mailu
+    icon: mailu
+    ext: png
+    port: 80
+  - name: Roundcube
+    icon: roundcube
+    port: 80
+  - name: SnappyMail
+    icon: snappymail
+    port: 80
+  - name: Stalwart
+    icon: stalwart
+    port: 8080
+  - name: Gotify
+    icon: gotify
+    port: 80
+  - name: Ntfy
+    icon: ntfy
+    port: 80
+  - name: Apprise
+    icon: apprise
+    ext: png
+    port: 8000
+- name: Reading & bookmarks
+  apps:
+  - name: FreshRSS
+    icon: freshrss
+    port: 80
+  - name: Miniflux
+    icon: miniflux
+    port: 8080
+  - name: Tiny Tiny RSS
+    icon: tinytinyrss
+    ext: png
+    port: 80
+  - name: RSSHub
+    icon: rsshub
+    ext: png
+    port: 1200
+  - name: Wallabag
+    icon: wallabag
+    port: 80
+  - name: Shiori
+    icon: shiori
+    port: 8080
+  - name: Linkding
+    icon: linkding
+    port: 9090
+  - name: Karakeep
+    icon: karakeep
+    port: 3000
+  - name: Changedetection.io
+    icon: changedetection
+    port: 5000
+- name: Dashboards
+  apps:
+  - name: Homepage
+    icon: homepage
+    ext: png
+    port: 3000
+  - name: Homarr
+    icon: homarr
+    port: 7575
+  - name: Heimdall
+    icon: heimdall
+    port: 80
+  - name: Dashy
+    icon: dashy
+    ext: png
+    port: 8080
+  - name: Flame
+    icon: flame
+    ext: png
+    port: 5005
+  - name: Organizr
+    icon: organizr
+    ext: png
+    port: 80
+  - name: Glance
+    icon: glance
+    port: 8080
+- name: AI & search
+  apps:
+  - name: Ollama
+    icon: ollama
+    port: 11434
+  - name: Open WebUI
+    icon: open-webui
+    port: 8080
+  - name: SearXNG
+    icon: searxng
+    port: 8080
+  - name: Whoogle
+    icon: whoogle
+    ext: png
+    port: 5000
+  - name: ComfyUI
+    icon: comfy-ui
+    ext: png
+    port: 8188
+- name: Utilities
+  apps:
+  - name: IT-Tools
+    icon: it-tools
+    port: 80
+  - name: Excalidraw
+    icon: excalidraw
+    port: 80
+  - name: draw.io
+    icon: draw-io
+    port: 8080
+  - name: LibreSpeed
+    icon: librespeed
+    port: 80
+  - name: Wetty
+    icon: wetty
+    ext: png
+    port: 3000
+  - name: Guacamole
+    icon: guacamole
+    port: 8080
+  - name: Cockpit
+    icon: cockpit
+    port: 9090
+  - name: Webmin
+    icon: webmin
+    port: 10000
+  - name: Ampache
+    icon: ampache
+    ext: png
+    port: 80
+  - name: Pterodactyl
+    icon: pterodactyl
+    port: 80
+  - name: Crafty
+    icon: crafty-controller
+    port: 8443
