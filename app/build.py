@@ -26,6 +26,7 @@ import os
 import pathlib
 import shutil
 import sys
+import re
 import urllib.parse
 import urllib.request
 
@@ -40,6 +41,30 @@ OUT_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_OUT", ROOT / "public"))
 CATALOG = pathlib.Path(os.environ.get("PORCHLIGHT_CATALOG", ROOT / "catalog" / "apps.yaml"))
 ICON_PNG = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/{}.png"
 ICON_CDN = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/{}.svg"
+
+IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(:\d+)?$")
+
+
+def normalise_href(raw):
+    """Give a bare host a scheme, so the link is absolute.
+
+    The API does this on save, but a hand-edited config.yaml never goes through
+    the API — and `href: plex.example.com` is a *relative* reference that the
+    browser resolves against the launcher itself. You click Plex and land on
+    `http://launcher/plex.example.com`. Normalising here too means a config
+    written by hand behaves the same as one written by the editor.
+    """
+    href = (raw or "").strip()
+    if not href or "://" in href or href.startswith(("/", "#", "mailto:")):
+        return href
+    host = href.split("/", 1)[0]
+    if IPV4.match(host):
+        return "http://" + href
+    port = host.rpartition(":")[2] if ":" in host else ""
+    if port.isdigit() and port != "443":
+        return "http://" + href
+    return "https://" + href
+
 
 # Lettered fallback tiles get a stable colour derived from the name, so a
 # service does not change colour when its neighbours are edited.
@@ -98,7 +123,7 @@ def colour_for(name):
 
 
 def tile(svc, group, order, files):
-    name, href, slug = svc["name"], svc.get("href", ""), svc.get("icon")
+    name, href, slug = svc["name"], normalise_href(svc.get("href")), svc.get("icon")
     icon_file = files.get(slug) if slug else None
     if icon_file:
         art = f'<img src="icons/{html.escape(icon_file)}" alt="" loading="lazy">'
@@ -712,6 +737,20 @@ EDITOR_JS = """
     return f ? 'icons/' + f : null;
   }
   function initials(n) { return (String(n).replace(/[^a-z0-9]/gi, '').slice(0, 2) || '?').toUpperCase(); }
+
+  // Same rules as normalise_href() in build.py and api.py. Applied on blur so
+  // you SEE what will be saved: a bare host is a relative reference, and a link
+  // to 'plex.example.com' otherwise sends you to launcher/plex.example.com —
+  // no error, just the wrong place.
+  function normaliseHref(raw) {
+    var h = (raw || '').trim();
+    if (!h || h.indexOf('://') > -1 || /^[\/#]|^mailto:/.test(h)) return h;
+    var host = h.split('/')[0];
+    if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(host)) return 'http://' + h;
+    var port = host.indexOf(':') > -1 ? host.split(':').pop() : '';
+    if (/^\d+$/.test(port) && port !== '443') return 'http://' + h;
+    return 'https://' + h;
+  }
   function colourFor(n) {
     var P = ['#4f7cac', '#7a5c9e', '#3f8f6f', '#b0703c', '#a4515f', '#4a6fa5'], s = 0;
     for (var i = 0; i < n.length; i++) s += n.charCodeAt(i);
@@ -950,9 +989,9 @@ EDITOR_JS = """
       '<h3>' + (isNew ? 'Add service' : 'Edit service') + '</h3>' +
       field('Name', 'f-name', svc.name) +
       field('URL', 'f-href', svc.href,
-            pre.port ? 'Opens in a new tab. ' + esc(pre.name) + ' usually listens on port ' +
-                       pre.port + '.'
-                     : 'Opens in a new tab.',
+            (pre.port ? esc(pre.name) + ' usually listens on port ' + pre.port + '. ' : '') +
+            'Opens in a new tab. A bare host gets https:// added \u2014 or http:// for an ' +
+            'IP address or a non-443 port.',
             'text', urlHint) +
       '<div class="field"><label for="f-group">Group</label><select id="f-group">' + opts + '</select></div>' +
       '<div class="field"><label>Icon</label><div class="row">' +
@@ -992,6 +1031,9 @@ EDITOR_JS = """
     ['f-name', 'f-icon', 'f-iconurl'].forEach(function (id) {
       dlg.querySelector('#' + id).addEventListener('input', paint);
     });
+    dlg.querySelector('#f-href').addEventListener('blur', function () {
+      this.value = normaliseHref(this.value);
+    });
     dlg.querySelector('#f-upload').addEventListener('change', function () {
       var file = this.files[0]; if (!file) return;
       api('POST', '/api/asset?kind=icon&name=' + encodeURIComponent(file.name), file, true)
@@ -1010,7 +1052,7 @@ EDITOR_JS = """
       if (dlg.returnValue === 'delete') { cfg.groups[gi].services.splice(si, 1); render(); return; }
       var out = {
         name: dlg.querySelector('#f-name').value.trim(),
-        href: dlg.querySelector('#f-href').value.trim(),
+        href: normaliseHref(dlg.querySelector('#f-href').value),
         icon: dlg.querySelector('#f-icon').value.trim()
       };
       var u = dlg.querySelector('#f-iconurl').value.trim();

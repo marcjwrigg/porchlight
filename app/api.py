@@ -60,6 +60,34 @@ MAX_ASSET = {"icon": 2 * 1024 * 1024, "bg": 24 * 1024 * 1024}
 KEEP_BACKUPS = 20
 
 SAFE_NAME = re.compile(r"[^a-zA-Z0-9._-]+")
+
+IPV4 = re.compile(r"^\d{1,3}(\.\d{1,3}){3}(:\d+)?$")
+
+
+def normalise_href(raw):
+    """Give a bare host a scheme, so a link is absolute.
+
+    Typing `plex.example.com` into a browser works because the browser adds a
+    scheme. Putting it in an `href` does not: it is a *relative* reference, and
+    the browser resolves it against the page — you click Plex and land on
+    `http://launcher/plex.example.com`. Nothing errors; you just go to the wrong
+    place, which is the worst kind of wrong.
+
+    Guessing the scheme is unavoidable and these are the least surprising rules:
+    an IP literal or an explicit non-443 port is almost always a plain-HTTP
+    self-hosted service, and a hostname is almost always behind TLS. Anything
+    with a scheme already, or an intentional relative path, is left alone.
+    """
+    href = (raw or "").strip()
+    if not href or "://" in href or href.startswith(("/", "#", "mailto:")):
+        return href
+    host = href.split("/", 1)[0]
+    if IPV4.match(host):
+        return "http://" + href
+    port = host.rpartition(":")[2] if ":" in host else ""
+    if port.isdigit() and port != "443":
+        return "http://" + href
+    return "https://" + href
 ALLOWED_EXT = {".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".avif"}
 
 HEADER = """\
@@ -172,7 +200,10 @@ def validate(cfg):
             name = (svc.get("name") or "").strip()
             if not name:
                 raise ValueError("every service needs a name")
-            entry = {"name": name[:80], "href": (svc.get("href") or "").strip()[:2048]}
+            entry = {
+                "name": name[:80],
+                "href": normalise_href(svc.get("href"))[:2048],
+            }
             for key in ("icon", "icon_url", "note"):
                 val = (svc.get(key) or "").strip()
                 if val:
