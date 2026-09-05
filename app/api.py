@@ -5,10 +5,15 @@
     PUT  /api/config                          -> validate, write, rebuild
     POST /api/asset?kind=icon|bg&name=<file>  -> store an uploaded image
 
-Binds **127.0.0.1 only**; nginx is the sole way in. Every mutating call needs
-`X-Edit-Token` matching /opt/porchlight/data/token, compared with `hmac.compare_digest`.
-That is a real gate, not decoration: this endpoint rewrites a file and executes
-a build, and a home network is typically one flat L2 with no client isolation.
+Binds **127.0.0.1 only**; nginx is the sole way in.
+
+**There is no authentication.** Anyone who can reach the page can edit it. That
+is a deliberate choice to match how self-hosted dashboards normally behave, and
+it means this must not be exposed to the internet — put it behind your reverse
+proxy's auth, or a VPN, if the network it sits on is not one you trust. What
+protection exists is structural rather than credential-based: input is validated
+before it reaches disk, every save keeps a timestamped backup, uploads are
+extension-checked and size-capped, and the unit can only write two directories.
 
 Deliberately stdlib + PyYAML, and nothing else. A launcher whose editor drags in
 a web framework has stopped being the thing that keeps working when everything
@@ -20,7 +25,6 @@ in a `note:` field, which is data and does round-trip. Anything that must be
 remembered about a service belongs in `note`, not in a `#` comment.
 """
 import hashlib
-import hmac
 import json
 import os
 import pathlib
@@ -42,16 +46,9 @@ CONFIG = pathlib.Path(os.environ.get("PORCHLIGHT_CONFIG", DATA_DIR / "config.yam
 ICON_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_ICONS", DATA_DIR / "icons"))
 BG_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_BG", DATA_DIR / "bg"))
 BACKUP_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_BACKUP", DATA_DIR / "backup"))
-TOKEN_FILE = pathlib.Path(os.environ.get("PORCHLIGHT_TOKEN", DATA_DIR / "token"))
 BUILD = HERE / "build.py"
 
 PORT = int(os.environ.get("PORCHLIGHT_PORT", "8088"))
-# Set PORCHLIGHT_OPEN=1 to run with no token at all. Deliberately an env var
-# rather than a config setting: turning off the only lock on a write endpoint
-# should be something you did on purpose to the host, not something a stray save
-# from the browser can do to itself.
-OPEN = os.environ.get("PORCHLIGHT_OPEN", "").lower() in ("1", "true", "yes")
-
 MAX_CONFIG = 512 * 1024
 # Per kind, because they are not the same thing. An icon is a logo and 2 MB is
 # already generous; a background is a photograph and a straight-off-the-camera
@@ -98,13 +95,6 @@ HEADER = """\
 # does round-trip (and shows as the tile's tooltip). A `#` comment here lasts
 # only until the next save from the UI.
 """
-
-
-def token():
-    try:
-        return TOKEN_FILE.read_text().strip()
-    except OSError:
-        return ""
 
 
 def clean_name(raw, fallback="upload"):
@@ -258,16 +248,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def authed(self):
-        if OPEN:
-            return True
-        want = token()
-        got = self.headers.get("X-Edit-Token", "")
-        if not want or not hmac.compare_digest(want, got):
-            self.reply(401, {"ok": False, "error": "Token rejected"})
-            return False
-        return True
-
     def body(self, limit):
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > limit:
@@ -294,8 +274,6 @@ class Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         if self.path.rstrip("/") != "/api/config":
             return self.reply(404, {"ok": False, "error": "no such endpoint"})
-        if not self.authed():
-            return
         raw = self.body(MAX_CONFIG)
         if raw is None:
             return
@@ -314,8 +292,6 @@ class Handler(BaseHTTPRequestHandler):
         path, _, query = self.path.partition("?")
         if path.rstrip("/") != "/api/asset":
             return self.reply(404, {"ok": False, "error": "no such endpoint"})
-        if not self.authed():
-            return
         params = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
         kind = params.get("kind", "icon")
         if kind not in ("icon", "bg"):
@@ -360,18 +336,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if OPEN:
-        # Loud, every start, in the journal. An unauthenticated write endpoint
-        # that rewrites the page and runs a build is a fine thing to choose and
-        # a terrible thing to forget you chose.
-        print(
-            "porchlight: PORCHLIGHT_OPEN is set — ANYONE who can reach this "
-            "server can rewrite your links and upload files. Do not expose it.",
-            file=sys.stderr,
-            flush=True,
-        )
-    elif not token():
-        sys.exit(f"no edit token at {TOKEN_FILE} — refusing to start with writes ungated")
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"porchlight api on 127.0.0.1:{PORT}, config {CONFIG}", flush=True)
     srv.serve_forever()

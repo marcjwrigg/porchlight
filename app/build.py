@@ -256,8 +256,6 @@ def main():
                 for k in ("layout", "sort", "size", "gapX", "gapY", "padX", "padY", "bgDim")
             },
             "hasBg": bool(bg),
-            "open": os.environ.get("PORCHLIGHT_OPEN", "").lower()
-            in ("1", "true", "yes"),
             "config": cfg,
             "iconFiles": files,
         },
@@ -678,7 +676,6 @@ applyView();
 # or refused write loses nothing that was not already on screen.
 EDITOR_JS = """
 (function () {
-  var TOKEN_KEY = 'porchlight.token';
   var cfg = null;          // working copy, only while editing
   var dlg = document.getElementById('dlg');
 
@@ -690,34 +687,11 @@ EDITOR_JS = """
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function esc(s) { return String(s == null ? '' : s); }
 
-  function token(force) {
-    var t = force ? null : localStorage.getItem(TOKEN_KEY);
-    if (!t) {
-      t = window.prompt('Edit token (see README):', '');
-      if (!t) return null;
-      localStorage.setItem(TOKEN_KEY, t.trim());
-    }
-    return localStorage.getItem(TOKEN_KEY);
-  }
-
-  // An open server never checks the header, so asking for a token would be
-  // theatre. The prompt appears only where it does something.
-  function needsToken() { return !BOOT.open; }
-
   function api(method, path, body, isRaw) {
     var headers = {};
-    if (needsToken()) {
-      var t = token(false);
-      if (!t) return Promise.reject(new Error('no token'));
-      headers['X-Edit-Token'] = t;
-    }
     if (!isRaw) headers['Content-Type'] = 'application/json';
     return fetch(path, { method: method, headers: headers, body: isRaw ? body : JSON.stringify(body) })
       .then(function (r) {
-        if (r.status === 401) {
-          localStorage.removeItem(TOKEN_KEY);
-          throw new Error('Token rejected — try again');
-        }
         // nginx answers some failures itself, in HTML — parsing that as JSON
         // would report a syntax error instead of the actual reason.
         return r.text().then(function (body) {

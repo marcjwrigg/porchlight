@@ -6,7 +6,7 @@
 # Installs nginx + python3-yaml, lays the app out under /opt/porchlight, and
 # starts a systemd unit for the write-back API. Re-running upgrades the code and
 # rewrites the unit and the nginx site; it never touches your config.yaml, your
-# icons, your backgrounds or your token.
+# icons or your backgrounds.
 #
 # Everything lives under one directory so uninstalling is `rm -rf /opt/porchlight`
 # plus two files, and backing up is one tarball.
@@ -44,14 +44,6 @@ else
   echo "   keeping the existing $PREFIX/data/config.yaml"
 fi
 
-echo "==> edit token"
-# Generated here so it never travels. The API refuses to start without one
-# rather than exposing an ungated write endpoint.
-if [[ ! -s $PREFIX/data/token ]]; then
-  head -c 24 /dev/urandom | base64 | tr -d '=+/' >"$PREFIX/data/token"
-  echo "   generated a new token"
-fi
-chmod 600 "$PREFIX/data/token"
 chown -R "$USER:$USER" "$PREFIX"
 
 echo "==> first build"
@@ -82,8 +74,8 @@ Environment=PORCHLIGHT_PORT=${PORT}
 ExecStart=/usr/bin/python3 ${PREFIX}/app/api.py
 Restart=always
 RestartSec=3
-# It writes two directories and reads one token. Saying so means a mistake in
-# the API cannot become a mistake anywhere else on the box.
+# It writes exactly two directories. Saying so means a mistake in the API cannot
+# become a mistake anywhere else on the box.
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
@@ -113,8 +105,9 @@ server {
         try_files \$uri \$uri/ =404;
     }
 
-    # The write path. The API binds loopback, so this is the only way in and
-    # the token check is the gate that matters.
+    # The write path. The API binds loopback, so this proxy is the only way in.
+    # There is no authentication beyond that — do not put this on the internet
+    # without auth in front of it.
     location /api/ {
         proxy_pass http://127.0.0.1:${PORT};
         proxy_set_header Host \$host;
@@ -137,6 +130,6 @@ systemctl restart nginx porchlight
 
 echo
 echo "  Porchlight is up:  http://$(hostname -I 2>/dev/null | awk '{print $1}'):${HTTP_PORT}/"
-echo "  Edit token:        $(cat "$PREFIX"/data/token)"
 echo
 echo "  Open the page, click the sliders icon, then 'Edit page…' to add services."
+echo "  Anyone who can reach it can edit it, so keep it off the open internet."

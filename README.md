@@ -39,7 +39,7 @@ cd porchlight
 ./install.sh
 ```
 
-It prints your URL and edit token. That is the whole install.
+It prints your URL. That is the whole install.
 
 Works on anything Debian-family with systemd, including an LXC container. Note
 that a minimal Debian image ships **neither `git` nor `sudo`** — hence `apt
@@ -58,9 +58,8 @@ docker compose up -d --build
 ```
 
 Then <http://localhost:8085>. **Mount `/data`** — your config, icons,
-backgrounds, backups and token live there, and without the volume every edit
-dies with the container. `docker compose logs` prints the edit token on first
-start.
+backgrounds and backups live there, and without the volume every edit dies
+with the container.
 
 ### Behind a reverse proxy
 
@@ -158,45 +157,25 @@ with `PORCHLIGHT_PREFETCH=1` if that machine has no internet.
 
 ## Security
 
-The read path is static files. The write path is gated:
+**There is no authentication. Anyone who can reach the page can edit it.**
 
-- `app/api.py` binds **127.0.0.1 only** — nginx is the sole way in.
-- Every mutating call needs `X-Edit-Token` matching the token file, compared
-  with `hmac.compare_digest`. The token is generated on the machine at install.
+That is deliberate, and it is how self-hosted launchers generally behave — the
+thing it protects is a list of bookmarks, and a login on every visit to your own
+start page is friction you did not ask for. If the network it sits on is not one
+you trust, put auth in front of it: Authelia, Authentik, your reverse proxy's
+basic auth, or simply keep it on a VPN. **Do not expose it to the internet.**
+
+What protection exists is structural rather than credential-based:
+
+- `app/api.py` binds **127.0.0.1 only** — nginx is the only way in.
+- Config is validated before it reaches disk, so a malformed save cannot break
+  the page for everyone.
+- Every save keeps a timestamped backup, 20 deep, in `data/backup/`.
+- Uploads are extension-checked and size-capped: 2 MB for icons, 24 MB for
+  backgrounds.
 - The systemd unit runs `ProtectSystem=strict`, `NoNewPrivileges`, and
-  `ReadWritePaths` limited to the data and public directories.
-- Config that fails validation never reaches disk, and every save keeps a
-  timestamped backup, 20 deep.
-
-**Be honest with yourself about what that is.** A shared token is right for one
-household on one flat network behind a reverse proxy. It is not multi-user auth,
-there are no accounts, and there is no audit trail beyond the backups. If you
-need those, put it behind Authelia, Authentik or Tailscale and treat the token as
-a second lock rather than the only one. Do not expose the write path to the
-internet.
-
-### Why gate it at all on a home LAN
-
-Because of what this page is, rather than what it is worth. Its job is *"click
-here for your password vault"*, so an unauthenticated write endpoint is not a
-defacement risk, it is a phishing primitive: anything on the network can silently
-repoint that tile at a lookalike, and the victim clicks it precisely because the
-launcher is the trusted thing. "Anything on the network" includes a compromised
-IoT device or a bad postinstall script on a laptop — no hostile human required.
-The endpoint also writes files into a web-served directory and runs a build.
-
-The whole gate is about twenty lines, and the browser asks for the token once and
-remembers it. If you still do not want it:
-
-```bash
-PORCHLIGHT_OPEN=1        # in the systemd unit or compose file
-```
-
-The API then skips every token check, the editor stops asking for one, and the
-service logs a warning at every start so you cannot forget you chose it. It is an
-environment variable rather than a setting in `config.yaml` on purpose: turning
-off the only lock on a write endpoint should be something you did to the host
-deliberately, not something a stray save from the browser can do to itself.
+  `ReadWritePaths` limited to the data and public directories, so a bug in the
+  API cannot reach the rest of the machine.
 
 There is also **no compare-and-swap**: two people editing at once is last-write-
 wins. The backups are your undo.
@@ -207,7 +186,7 @@ wins. The backups are your undo.
 /opt/porchlight/
 ├── app/          build.py, api.py          — the code, replaced on upgrade
 ├── catalog/      apps.yaml                 — the app catalogue
-├── data/         config.yaml, icons/, bg/, backup/, token
+├── data/         config.yaml, icons/, bg/, backup/
 └── public/       index.html, icons/, bg/   — generated, served by nginx
 ```
 
