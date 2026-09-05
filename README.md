@@ -30,12 +30,17 @@ is. The editor is a separate write path that only runs when you open it.
 ### Debian / Ubuntu
 
 ```bash
+sudo apt install -y git          # minimal images often have neither git nor sudo
 git clone https://github.com/marcjwrigg/porchlight
 cd porchlight
-sudo ./install.sh
+sudo ./install.sh                # or just ./install.sh if you are already root
 ```
 
 It prints your URL and edit token. That is the whole install.
+
+Works on anything Debian-family with systemd, including an LXC container — a
+minimal Debian image needs `apt install git` first, and has no `sudo`, so run
+the script directly as root.
 
 Options, as environment variables: `PREFIX` (default `/opt/porchlight`),
 `PORCHLIGHT_HTTP_PORT` (default `80`), `PORCHLIGHT_PREFETCH=1` to download every
