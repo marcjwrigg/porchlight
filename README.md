@@ -160,6 +160,29 @@ need those, put it behind Authelia, Authentik or Tailscale and treat the token a
 a second lock rather than the only one. Do not expose the write path to the
 internet.
 
+### Why gate it at all on a home LAN
+
+Because of what this page is, rather than what it is worth. Its job is *"click
+here for your password vault"*, so an unauthenticated write endpoint is not a
+defacement risk, it is a phishing primitive: anything on the network can silently
+repoint that tile at a lookalike, and the victim clicks it precisely because the
+launcher is the trusted thing. "Anything on the network" includes a compromised
+IoT device or a bad postinstall script on a laptop — no hostile human required.
+The endpoint also writes files into a web-served directory and runs a build.
+
+The whole gate is about twenty lines, and the browser asks for the token once and
+remembers it. If you still do not want it:
+
+```bash
+PORCHLIGHT_OPEN=1        # in the systemd unit or compose file
+```
+
+The API then skips every token check, the editor stops asking for one, and the
+service logs a warning at every start so you cannot forget you chose it. It is an
+environment variable rather than a setting in `config.yaml` on purpose: turning
+off the only lock on a write endpoint should be something you did to the host
+deliberately, not something a stray save from the browser can do to itself.
+
 There is also **no compare-and-swap**: two people editing at once is last-write-
 wins. The backups are your undo.
 

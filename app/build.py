@@ -229,6 +229,8 @@ def main():
                 for k in ("layout", "sort", "size", "gapX", "gapY", "padX", "padY", "bgDim")
             },
             "hasBg": bool(bg),
+            "open": os.environ.get("PORCHLIGHT_OPEN", "").lower()
+            in ("1", "true", "yes"),
             "config": cfg,
             "iconFiles": files,
         },
@@ -671,10 +673,17 @@ EDITOR_JS = """
     return localStorage.getItem(TOKEN_KEY);
   }
 
+  // An open server never checks the header, so asking for a token would be
+  // theatre. The prompt appears only where it does something.
+  function needsToken() { return !BOOT.open; }
+
   function api(method, path, body, isRaw) {
-    var t = token(false);
-    if (!t) return Promise.reject(new Error('no token'));
-    var headers = { 'X-Edit-Token': t };
+    var headers = {};
+    if (needsToken()) {
+      var t = token(false);
+      if (!t) return Promise.reject(new Error('no token'));
+      headers['X-Edit-Token'] = t;
+    }
     if (!isRaw) headers['Content-Type'] = 'application/json';
     return fetch(path, { method: method, headers: headers, body: isRaw ? body : JSON.stringify(body) })
       .then(function (r) {

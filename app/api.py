@@ -46,6 +46,12 @@ TOKEN_FILE = pathlib.Path(os.environ.get("PORCHLIGHT_TOKEN", DATA_DIR / "token")
 BUILD = HERE / "build.py"
 
 PORT = int(os.environ.get("PORCHLIGHT_PORT", "8088"))
+# Set PORCHLIGHT_OPEN=1 to run with no token at all. Deliberately an env var
+# rather than a config setting: turning off the only lock on a write endpoint
+# should be something you did on purpose to the host, not something a stray save
+# from the browser can do to itself.
+OPEN = os.environ.get("PORCHLIGHT_OPEN", "").lower() in ("1", "true", "yes")
+
 MAX_CONFIG = 512 * 1024
 # Per kind, because they are not the same thing. An icon is a logo and 2 MB is
 # already generous; a background is a photograph and a straight-off-the-camera
@@ -222,6 +228,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def authed(self):
+        if OPEN:
+            return True
         want = token()
         got = self.headers.get("X-Edit-Token", "")
         if not want or not hmac.compare_digest(want, got):
@@ -321,7 +329,17 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not token():
+    if OPEN:
+        # Loud, every start, in the journal. An unauthenticated write endpoint
+        # that rewrites the page and runs a build is a fine thing to choose and
+        # a terrible thing to forget you chose.
+        print(
+            "porchlight: PORCHLIGHT_OPEN is set — ANYONE who can reach this "
+            "server can rewrite your links and upload files. Do not expose it.",
+            file=sys.stderr,
+            flush=True,
+        )
+    elif not token():
         sys.exit(f"no edit token at {TOKEN_FILE} — refusing to start with writes ungated")
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"porchlight api on 127.0.0.1:{PORT}, config {CONFIG}", flush=True)
