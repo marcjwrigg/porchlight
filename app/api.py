@@ -150,7 +150,7 @@ def validate(cfg):
     # Missing keys take the default rather than failing: a caller that only
     # wants to change the groups should not have to restate the whole page.
     fallback = {"title": "", "background": "", "favicon": "",
-                "layout": "flat", "sort": "az", "size": "m"}
+                "layout": "flat", "sort": "az", "bgTint": "dark"}
     out_settings = {}
     for key, default in fallback.items():
         val = settings.get(key, default)
@@ -159,19 +159,27 @@ def validate(cfg):
         if not isinstance(val, str):
             raise ValueError(f"settings.{key} must be a string")
         out_settings[key] = (val or default if key in ("layout", "sort", "size") else val)[:512]
-    for key, default, ceiling in (("gapX", 8, 96), ("gapY", 8, 96),
-                                  ("padX", 32, 400), ("padY", 28, 400),
-                                  ("bgDim", 72, 100)):
+    # Icon size used to be s/m/l. Accept the old spelling so an existing config
+    # keeps working, and write it back as a number.
+    legacy = {"s": 56, "m": 88, "l": 120}
+    size = settings.get("size", 88)
+    if isinstance(size, str):
+        size = legacy.get(size, 88)
+    for key, default, lo, hi in (("size", 88, 16, 400),
+                                 ("gapX", 8, 0, 400), ("gapY", 8, 0, 400),
+                                 ("padX", 32, 0, 1200), ("padY", 28, 0, 1200),
+                                 ("bgDim", 72, 0, 100)):
+        raw = size if key == "size" else settings.get(key, default)
         try:
-            out_settings[key] = max(0, min(ceiling, int(settings.get(key, default))))
+            out_settings[key] = max(lo, min(hi, int(raw)))
         except (TypeError, ValueError):
             raise ValueError(f"settings.{key} must be a number")
     if out_settings["layout"] not in ("flat", "grouped"):
         raise ValueError("settings.layout must be flat or grouped")
     if out_settings["sort"] not in ("az", "curated"):
         raise ValueError("settings.sort must be az or curated")
-    if out_settings["size"] not in ("s", "m", "l"):
-        raise ValueError("settings.size must be s, m or l")
+    if out_settings["bgTint"] not in ("dark", "light"):
+        raise ValueError("settings.bgTint must be dark or light")
 
     groups = cfg.get("groups")
     if not isinstance(groups, list) or len(groups) > 40:
@@ -194,6 +202,13 @@ def validate(cfg):
                 "name": name[:80],
                 "href": normalise_href(svc.get("href"))[:2048],
             }
+            # The one-grid position. Kept separate from the group order because
+            # the two arrangements are independent.
+            if svc.get("pos") is not None:
+                try:
+                    entry["pos"] = max(0, min(9999, int(svc["pos"])))
+                except (TypeError, ValueError):
+                    raise ValueError(f"{name}: pos must be a number")
             for key in ("icon", "icon_url", "note"):
                 val = (svc.get(key) or "").strip()
                 if val:

@@ -76,12 +76,13 @@ DEFAULTS = {
     "favicon": "",
     "layout": "flat",
     "sort": "az",
-    "size": "m",
+    "size": 88,
     "gapX": 8,
     "gapY": 8,
     "padX": 32,
     "padY": 28,
     "bgDim": 72,
+    "bgTint": "dark",
 }
 
 
@@ -122,7 +123,7 @@ def colour_for(name):
     return PALETTE[sum(map(ord, name)) % len(PALETTE)]
 
 
-def tile(svc, group, order, files):
+def tile(svc, group, order, files, pos):
     name, href, slug = svc["name"], normalise_href(svc.get("href")), svc.get("icon")
     icon_file = files.get(slug) if slug else None
     if icon_file:
@@ -146,6 +147,7 @@ def tile(svc, group, order, files):
         f' href="{html.escape(href)}"'
         f' data-group="{html.escape(group)}"'
         f' data-order="{order}"'
+        f' data-pos="{pos}"'
         f' data-name="{html.escape(name.lower())}">\n'
         f'        <span class="art">{art}</span>\n'
         f'        <span class="label">{html.escape(name)}</span>\n'
@@ -225,11 +227,26 @@ def main():
         for svc in group.get("services") or []:
             flat.append((svc, group["name"], order))
             order += 1
+
+    # `pos` is the one-grid order, which is genuinely a different thing from the
+    # grouped order — a flat wall of icons is not the groups concatenated, and
+    # forcing one to imply the other is what made arranging it awkward. A config
+    # without any `pos` falls back to the grouped sequence, so nothing written
+    # before this existed changes behaviour.
+    positions = {id(svc): svc.get("pos") for svc, _, _ in flat}
+    if any(v is not None for v in positions.values()):
+        ordered = sorted(
+            flat, key=lambda t: (t[0].get("pos") is None, t[0].get("pos", 0), t[2])
+        )
+    else:
+        ordered = flat
+    pos_of = {id(t[0]): i for i, t in enumerate(ordered)}
     # Ship the configured default view as the markup itself, so the page is
     # correct before a single line of script runs.
-    if settings["sort"] == "az":
-        flat.sort(key=lambda t: t[0]["name"].lower())
-    tiles = "".join(tile(svc, grp, idx, files) for svc, grp, idx in flat)
+    shown = sorted(flat, key=lambda t: t[0]["name"].lower()) if settings["sort"] == "az" else ordered
+    tiles = "".join(
+        tile(svc, grp, idx, files, pos_of[id(svc)]) for svc, grp, idx in shown
+    )
 
     bg = settings.get("background") or ""
     bg_css = ""
@@ -240,7 +257,7 @@ def main():
             f" background:url('{html.escape(url, quote=True)}') center/cover no-repeat;"
             " }\n"
             "body::after { content:''; position:fixed; inset:0; z-index:-1;"
-            " background:rgba(24,25,28,var(--bg-dim)); }\n"
+            " background:rgba(var(--scrim),var(--bg-dim)); }\n"
         )
 
     title = settings.get("title") or ""
@@ -253,7 +270,10 @@ def main():
             "groups": group_names,
             "defaults": {
                 k: settings[k]
-                for k in ("layout", "sort", "size", "gapX", "gapY", "padX", "padY", "bgDim")
+                for k in (
+                    "layout", "sort", "size", "gapX", "gapY",
+                    "padX", "padY", "bgDim", "bgTint",
+                )
             },
             "hasBg": bool(bg),
             "config": cfg,
@@ -299,14 +319,32 @@ CSS = """
   --art: 88px; --cell: 150px; --gap-x: 8px; --gap-y: 8px; --pad-x: 32px; --pad-y: 28px;
   --bg-dim: .72;
   --bg: #2b2d31; --panel: #34373d; --line: #43474e; --dim: #8f949b;
+  --fg: #e6e6e6; --label: #cfd3d8; --muted: #b9bec5; --quiet: #565b63;
+  --press: #4a4f57; --link: #9fb6d4; --shadow: rgba(0,0,0,.45);
+  /* The scrim laid over a background image, as raw channels so --bg-dim can
+     supply the alpha. Flipping it is the whole of the light tint. */
+  --scrim: 24, 25, 28;
 }
+
+/* A white scrim over a photo with white labels on top is unreadable, so the
+   tint is not just the overlay — it flips the text and panels with it. With no
+   background image set it is simply a light theme, which is a fair thing to
+   want anyway. */
+body.light {
+  --bg: #eceef1; --panel: #ffffff; --line: #d3d7dd; --dim: #5f656e;
+  --fg: #1b1d21; --label: #2c3036; --muted: #4a505a; --quiet: #8a9099;
+  --press: #d7dbe2; --link: #2f5d94; --shadow: rgba(0,0,0,.18);
+  --scrim: 250, 250, 250;
+}
+body.light .seg button[aria-pressed="true"] { color: #16181c; }
+body.light .letters { color: #fff; }
 * { box-sizing: border-box; }
 body {
   margin: 0; min-height: 100vh;
   /* Bottom keeps a little more room than the top so the last row is not
      jammed against the viewport edge on a short page. */
   padding: var(--pad-y) var(--pad-x) calc(var(--pad-y) + 40px);
-  background: var(--bg); color: #e6e6e6;
+  background: var(--bg); color: var(--fg);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 h1 { margin: 0 0 1.5rem; font-size: 1.3rem; font-weight: 600; }
@@ -316,11 +354,11 @@ h1 { margin: 0 0 1.5rem; font-size: 1.3rem; font-weight: 600; }
 #prefs { position: fixed; top: .9rem; right: 1.1rem; z-index: 40; }
 #prefs-btn {
   display: none; appearance: none; border: 0; background: transparent;
-  color: #565b63; width: 34px; height: 34px; padding: 6px; border-radius: 9px;
+  color: var(--quiet); width: 34px; height: 34px; padding: 6px; border-radius: 9px;
   cursor: pointer; transition: color .12s, background .12s;
 }
 #prefs-btn.on { display: block; }
-#prefs-btn:hover, #prefs-btn[aria-expanded="true"] { color: #e6e6e6; background: var(--panel); }
+#prefs-btn:hover, #prefs-btn[aria-expanded="true"] { color: var(--fg); background: var(--panel); }
 #prefs-btn svg { width: 100%; height: 100%; display: block; }
 
 /* Hidden until the script enables it: a dead toggle is worse than a missing one. */
@@ -328,29 +366,32 @@ h1 { margin: 0 0 1.5rem; font-size: 1.3rem; font-weight: 600; }
   display: none; position: absolute; top: 40px; right: 0;
   flex-direction: column; gap: .75rem; white-space: nowrap; min-width: 250px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: .9rem 1rem; box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: .9rem 1rem; box-shadow: 0 12px 32px var(--shadow);
 }
 #controls.open { display: flex; }
-.bg-only { display: none; }
-#prefs.has-bg .bg-only { display: flex; }
+/* Specificity matters here: a bare `.bg-only { display:none }` loses to the
+   `.ctl { display:flex }` rule further down, and the backdrop slider then shows
+   with no background image to dim. */
+#controls .bg-only { display: none; }
+#prefs.has-bg #controls .bg-only { display: flex; }
 .ctl { display: flex; align-items: center; gap: 1rem; justify-content: space-between; }
 .ctl > span:first-child {
   font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
 }
 .seg { display: flex; background: var(--bg); border-radius: 8px; padding: 2px; }
 .seg button {
-  appearance: none; border: 0; background: transparent; color: #b9bec5;
+  appearance: none; border: 0; background: transparent; color: var(--muted);
   font: inherit; font-size: .78rem; padding: .3rem .65rem; border-radius: 6px; cursor: pointer;
 }
-.seg button:hover { color: #e6e6e6; }
-.seg button[aria-pressed="true"] { background: #4a4f57; color: #fff; }
+.seg button:hover { color: var(--fg); }
+.seg button[aria-pressed="true"] { background: var(--press); color: #fff; }
 .ctl input[type=range] { width: 120px; accent-color: #7f8792; }
 .ctl-sep { height: 1px; background: var(--line); margin: .15rem 0; }
 .linkish {
-  appearance: none; border: 0; background: transparent; color: #9fb6d4;
+  appearance: none; border: 0; background: transparent; color: var(--link);
   font: inherit; font-size: .8rem; padding: 0; cursor: pointer; text-align: left;
 }
-.linkish:hover { color: #cfe0f5; }
+.linkish:hover { filter: brightness(1.25); }
 
 h2 {
   margin: 2.25rem 0 1rem; font-size: .7rem; font-weight: 600;
@@ -376,7 +417,7 @@ main > h2:first-child { margin-top: 0; }
   width: 100%; height: 100%; border-radius: 18%;
   font-size: calc(var(--art) / 3); font-weight: 600; color: #fff;
 }
-.label { font-size: .85rem; text-align: center; line-height: 1.25; color: #cfd3d8; overflow-wrap: anywhere; }
+.label { font-size: .85rem; text-align: center; line-height: 1.25; color: var(--label); overflow-wrap: anywhere; }
 """
 
 EDITOR_CSS = """
@@ -390,9 +431,9 @@ body.editing .tile { cursor: grab; }
 }
 body.editing #editbar { display: flex; }
 #editbar .who {
-  margin-right: auto; font-size: .7rem; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--dim);
+  font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
 }
+#ed-layout { margin-right: auto; }
 .btn {
   appearance: none; font: inherit; font-size: .8rem; cursor: pointer;
   border: 1px solid var(--line); background: var(--panel); color: #e6e6e6;
@@ -519,19 +560,20 @@ CONTROLS = f"""    <div id="prefs">
           <button data-key="sort" data-value="az" aria-pressed="true">A&ndash;Z</button>
           <button data-key="sort" data-value="curated" aria-pressed="false">Curated</button>
         </span></label>
-        <label class="ctl"><span>Size</span><span class="seg">
-          <button data-key="size" data-value="s" aria-pressed="false">S</button>
-          <button data-key="size" data-value="m" aria-pressed="true">M</button>
-          <button data-key="size" data-value="l" aria-pressed="false">L</button>
-        </span></label>
+        <label class="ctl"><span>Size</span>
+          <input type="range" id="size" min="24" max="260" step="2"></label>
         <label class="ctl"><span>Gap X</span>
-          <input type="range" id="gapx" min="0" max="48" step="2"></label>
+          <input type="range" id="gapx" min="0" max="300" step="2"></label>
         <label class="ctl"><span>Gap Y</span>
-          <input type="range" id="gapy" min="0" max="48" step="2"></label>
+          <input type="range" id="gapy" min="0" max="300" step="2"></label>
         <label class="ctl"><span>Margin X</span>
-          <input type="range" id="padx" min="0" max="160" step="4"></label>
+          <input type="range" id="padx" min="0" max="800" step="4"></label>
         <label class="ctl"><span>Margin Y</span>
-          <input type="range" id="pady" min="0" max="160" step="4"></label>
+          <input type="range" id="pady" min="0" max="800" step="4"></label>
+        <label class="ctl"><span>Tint</span><span class="seg">
+          <button data-key="bgTint" data-value="dark" aria-pressed="true">Dark</button>
+          <button data-key="bgTint" data-value="light" aria-pressed="false">Light</button>
+        </span></label>
         <label class="ctl bg-only"><span>Backdrop</span>
           <input type="range" id="bgdim" min="0" max="100" step="1"></label>
         <div class="ctl-sep"></div>
@@ -543,6 +585,10 @@ CONTROLS = f"""    <div id="prefs">
 
 EDITOR_HTML = """  <div id="editbar">
     <span class="who">Editing</span>
+    <span class="seg" id="ed-layout">
+      <button type="button" data-v="grouped" aria-pressed="true">Grouped</button>
+      <button type="button" data-v="flat" aria-pressed="false">One grid</button>
+    </span>
     <button class="btn" id="ed-add-service">Add service</button>
     <button class="btn" id="ed-add-group">Add group</button>
     <button class="btn" id="ed-settings">Page settings</button>
@@ -558,7 +604,9 @@ EDITOR_HTML = """  <div id="editbar">
 JS = """
 var BOOT = window.__BOOT__;
 var PREF = 'porchlight.prefs';
-var SIZES = { s: ['56px', '112px'], m: ['88px', '150px'], l: ['120px', '190px'] };
+// Legacy configs used s/m/l. Map them once on read so an old config keeps
+// working and is written back as a number on the next save.
+var LEGACY = { s: 56, m: 88, l: 120 };
 var state = Object.assign({}, BOOT.defaults);
 try { Object.assign(state, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) {}
 
@@ -566,10 +614,12 @@ var main = document.getElementById('main');
 var tiles = [].slice.call(main.querySelectorAll('.tile'));
 
 function applyView() {
-  var px = SIZES[state.size] || SIZES.m;
+  if (typeof state.size === 'string') state.size = LEGACY[state.size] || 88;
   var root = document.documentElement.style;
-  root.setProperty('--art', px[0]);
-  root.setProperty('--cell', px[1]);
+  root.setProperty('--art', state.size + 'px');
+  // The tile is the icon plus its label and padding. Deriving the column width
+  // rather than storing it means one slider cannot produce a broken grid.
+  root.setProperty('--cell', Math.max(72, state.size + 62) + 'px');
   root.setProperty('--gap-x', state.gapX + 'px');
   root.setProperty('--gap-y', state.gapY + 'px');
   root.setProperty('--pad-x', state.padX + 'px');
@@ -578,14 +628,17 @@ function applyView() {
   // it completely. Labels have to stay readable over whatever gets uploaded,
   // and only the person looking at it can judge that.
   root.setProperty('--bg-dim', (state.bgDim / 100).toFixed(2));
+  document.body.classList.toggle('light', state.bgTint === 'light');
 
   if (document.body.classList.contains('editing')) return;
 
-  var sorted = tiles.slice().sort(function (a, b) {
-    return state.sort === 'az'
-      ? a.dataset.name.localeCompare(b.dataset.name)
-      : (+a.dataset.order) - (+b.dataset.order);
-  });
+  var byName = function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); };
+  var curated = state.layout === 'grouped'
+    // Inside a group, the group's own order is what you arranged.
+    ? function (a, b) { return (+a.dataset.order) - (+b.dataset.order); }
+    // One grid has its own arrangement, independent of the groups.
+    : function (a, b) { return (+a.dataset.pos) - (+b.dataset.pos); };
+  var sorted = tiles.slice().sort(state.sort === 'az' ? byName : curated);
 
   main.textContent = '';
   if (state.layout === 'grouped') {
@@ -613,6 +666,7 @@ function syncControls() {
   document.querySelectorAll('#controls .seg button').forEach(function (b) {
     b.setAttribute('aria-pressed', state[b.dataset.key] === b.dataset.value);
   });
+  document.getElementById('size').value = state.size;
   document.getElementById('gapx').value = state.gapX;
   document.getElementById('gapy').value = state.gapY;
   document.getElementById('padx').value = state.padX;
@@ -629,6 +683,9 @@ panel.addEventListener('click', function (ev) {
   if (!b) return;
   state[b.dataset.key] = b.dataset.value;
   applyView();
+});
+document.getElementById('size').addEventListener('input', function () {
+  state.size = +this.value; applyView();
 });
 document.getElementById('gapx').addEventListener('input', function () {
   state.gapX = +this.value; applyView();
@@ -741,7 +798,99 @@ EDITOR_JS = """
            '">' + initials(svc.name) + '</span></span>';
   }
 
+  // Editing follows the view. Arranging one grid by shuffling groups was the
+  // awkward part: the two orders are independent, so the editor now offers both
+  // and writes whichever you touched.
+  var editLayout = 'grouped';
+
+  function flatten() {
+    var out = [];
+    cfg.groups.forEach(function (g, gi) {
+      (g.services || []).forEach(function (svc, si) { out.push({ gi: gi, si: si, svc: svc }); });
+    });
+    if (out.some(function (e) { return e.svc.pos != null; })) {
+      out.sort(function (a, b) {
+        var ap = a.svc.pos == null ? 1e9 : a.svc.pos;
+        var bp = b.svc.pos == null ? 1e9 : b.svc.pos;
+        return ap - bp;
+      });
+    }
+    return out;
+  }
+
+  function renumber(list) { list.forEach(function (e, i) { e.svc.pos = i; }); }
+
+  function renderFlat() {
+    var main = document.getElementById('main');
+    main.textContent = '';
+    var list = flatten();
+    renumber(list);
+    var grid = document.createElement('div');
+    grid.className = 'grid';
+
+    list.forEach(function (entry, index) {
+      var el = document.createElement('div');
+      el.className = 'tile';
+      el.draggable = true;
+      el.innerHTML = art(entry.svc) +
+        '<span class="label">' + esc(entry.svc.name) + '</span>' +
+        '<span class="badge"><button data-act="edit" title="Edit">&#9998;</button>' +
+        '<button data-act="del" title="Remove">&times;</button></span>';
+      el.addEventListener('click', function (ev) {
+        var b = ev.target.closest('button');
+        if (b && b.dataset.act === 'del') {
+          cfg.groups[entry.gi].services.splice(entry.si, 1);
+          renumber(flatten());
+          render();
+          return;
+        }
+        editService(entry.gi, entry.si);
+      });
+      el.addEventListener('dragstart', function (ev) {
+        ev.dataTransfer.setData('text/plain', String(index));
+        ev.dataTransfer.effectAllowed = 'move';
+        el.classList.add('dragging');
+      });
+      el.addEventListener('dragend', function () { el.classList.remove('dragging'); });
+      el.addEventListener('dragover', function (ev) { ev.preventDefault(); el.classList.add('drop-before'); });
+      el.addEventListener('dragleave', function () { el.classList.remove('drop-before'); });
+      el.addEventListener('drop', function (ev) {
+        ev.preventDefault(); ev.stopPropagation();
+        el.classList.remove('drop-before');
+        var from = parseInt(ev.dataTransfer.getData('text/plain'), 10);
+        if (isNaN(from) || from === index) return;
+        var moved = list.splice(from, 1)[0];
+        list.splice(from < index ? index - 1 : index, 0, moved);
+        renumber(list);
+        render();
+      });
+      grid.appendChild(el);
+    });
+
+    var add = document.createElement('button');
+    add.className = 'addtile'; add.type = 'button'; add.textContent = '+';
+    add.title = 'Add a service';
+    add.addEventListener('click', function () { pickApp(0); });
+    grid.appendChild(add);
+
+    grid.addEventListener('dragover', function (ev) { ev.preventDefault(); });
+    grid.addEventListener('drop', function (ev) {
+      ev.preventDefault();
+      var from = parseInt(ev.dataTransfer.getData('text/plain'), 10);
+      if (isNaN(from)) return;
+      list.push(list.splice(from, 1)[0]);
+      renumber(list);
+      render();
+    });
+    main.appendChild(grid);
+  }
+
   function render() {
+    if (editLayout === 'flat') return renderFlat();
+    return renderGrouped();
+  }
+
+  function renderGrouped() {
     var main = document.getElementById('main');
     main.textContent = '';
     cfg.groups.forEach(function (g, gi) {
@@ -1067,11 +1216,13 @@ EDITOR_JS = """
         '<input type="file" id="p-upload" accept="image/*"></div>' +
       '<div class="ctl"><span>Default layout</span>' + seg('layout', [['flat', 'One grid'], ['grouped', 'Grouped']]) + '</div>' +
       '<div class="ctl"><span>Default sort</span>' + seg('sort', [['az', 'A\\u2013Z'], ['curated', 'Curated']]) + '</div>' +
-      '<div class="ctl"><span>Default size</span>' + seg('size', [['s', 'S'], ['m', 'M'], ['l', 'L']]) + '</div>' +
-      '<div class="ctl"><span>Default gap X</span><input type="range" id="p-gx" min="0" max="48" step="2" value="' + (s.gapX || 0) + '"></div>' +
-      '<div class="ctl"><span>Default gap Y</span><input type="range" id="p-gy" min="0" max="48" step="2" value="' + (s.gapY || 0) + '"></div>' +
-      '<div class="ctl"><span>Default margin X</span><input type="range" id="p-px" min="0" max="160" step="4" value="' + (s.padX || 0) + '"></div>' +
-      '<div class="ctl"><span>Default margin Y</span><input type="range" id="p-py" min="0" max="160" step="4" value="' + (s.padY || 0) + '"></div>' +
+      '<div class="ctl"><span>Default size</span><input type="range" id="p-sz" min="24" max="260" step="2" value="' +
+        (typeof s.size === 'number' ? s.size : (LEGACY[s.size] || 88)) + '"></div>' +
+      '<div class="ctl"><span>Default gap X</span><input type="range" id="p-gx" min="0" max="300" step="2" value="' + (s.gapX || 0) + '"></div>' +
+      '<div class="ctl"><span>Default gap Y</span><input type="range" id="p-gy" min="0" max="300" step="2" value="' + (s.gapY || 0) + '"></div>' +
+      '<div class="ctl"><span>Default margin X</span><input type="range" id="p-px" min="0" max="800" step="4" value="' + (s.padX || 0) + '"></div>' +
+      '<div class="ctl"><span>Default margin Y</span><input type="range" id="p-py" min="0" max="800" step="4" value="' + (s.padY || 0) + '"></div>' +
+      '<div class="ctl"><span>Default tint</span>' + seg('bgTint', [['dark', 'Dark'], ['light', 'Light']]) + '</div>' +
       '<div class="ctl"><span>Default backdrop</span><input type="range" id="p-bd" min="0" max="100" step="1" value="' +
         (s.bgDim == null ? 72 : s.bgDim) + '"></div>' +
       '<span class="hint">Defaults apply to a browser that has not set its own. ' +
@@ -1102,6 +1253,7 @@ EDITOR_JS = """
       s.title = dlg.querySelector('#p-title').value.trim();
       s.background = dlg.querySelector('#p-bg').value.trim();
       s.gapX = +dlg.querySelector('#p-gx').value;
+      s.size = +dlg.querySelector('#p-sz').value;
       s.gapY = +dlg.querySelector('#p-gy').value;
       s.padX = +dlg.querySelector('#p-px').value;
       s.padY = +dlg.querySelector('#p-py').value;
@@ -1115,15 +1267,30 @@ EDITOR_JS = """
   function enter() {
     cfg = clone(BOOT.config);
     cfg.settings = Object.assign({ title: '', background: '', layout: 'flat', sort: 'az',
-                                   size: 'm', gapX: 8, gapY: 8, padX: 32, padY: 28,
-                                   bgDim: 72 },
+                                   size: 88, gapX: 8, gapY: 8, padX: 32, padY: 28,
+                                   bgDim: 72, bgTint: 'dark' },
                                  cfg.settings || {});
     cfg.groups = cfg.groups || [];
+    // Open the editor on whatever you are currently looking at.
+    editLayout = state.layout === 'grouped' ? 'grouped' : 'flat';
+    document.querySelectorAll('#ed-layout button').forEach(function (o) {
+      o.setAttribute('aria-pressed', o.dataset.v === editLayout);
+    });
     document.body.classList.add('editing');
     openPanel(false);
     render();
   }
   function leave() { document.body.classList.remove('editing'); cfg = null; applyView(); }
+
+  document.getElementById('ed-layout').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    editLayout = b.dataset.v;
+    this.querySelectorAll('button').forEach(function (o) {
+      o.setAttribute('aria-pressed', o.dataset.v === editLayout);
+    });
+    render();
+  });
 
   document.getElementById('edit-open').addEventListener('click', enter);
   document.getElementById('ed-cancel').addEventListener('click', function () {
