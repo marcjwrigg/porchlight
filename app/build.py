@@ -87,6 +87,10 @@ DEFAULTS = {
     "favicon": "",
     "layout": "flat",
     "sort": "az",
+    "titleAlign": "left",
+    # 1.3rem at the old fixed size. Stored in px because the slider is in px and
+    # a rem here would drift against the tile labels, which are not scaled.
+    "titleSize": 21,
     "size": 88,
     "gapX": 8,
     "gapY": 8,
@@ -291,9 +295,13 @@ def main():
                 for k in (
                     "layout", "sort", "size", "gapX", "gapY",
                     "padX", "padY", "bgDim", "bgTint",
+                    "titleAlign", "titleSize",
                 )
             },
             "hasBg": bool(bg),
+            # The heading is emitted server-side or not at all, so its controls
+            # would be dead knobs on a page with no title.
+            "hasTitle": bool(title),
             "config": cfg,
             "iconFiles": files,
         },
@@ -365,7 +373,10 @@ body {
   background: var(--bg); color: var(--fg);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-h1 { margin: 0 0 1.5rem; font-size: 1.3rem; font-weight: 600; }
+h1 {
+  margin: 0 0 1.5rem; font-weight: 600;
+  font-size: var(--title-size); text-align: var(--title-align);
+}
 
 /* The launcher is tiles. Layout is a preference you set once, so it lives
    behind one quiet button rather than occupying the top of every visit. */
@@ -392,6 +403,8 @@ h1 { margin: 0 0 1.5rem; font-size: 1.3rem; font-weight: 600; }
    with no background image to dim. */
 #controls .bg-only { display: none; }
 #prefs.has-bg #controls .bg-only { display: flex; }
+#controls .title-only { display: none; }
+#prefs.has-title #controls .title-only { display: flex; }
 .ctl { display: flex; align-items: center; gap: 1rem; justify-content: space-between; }
 .ctl > span:first-child {
   font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
@@ -588,6 +601,13 @@ CONTROLS = f"""    <div id="prefs">
           <button data-key="sort" data-value="az" aria-pressed="true">A&ndash;Z</button>
           <button data-key="sort" data-value="curated" aria-pressed="false">Curated</button>
         </span></label>
+        <label class="ctl title-only"><span>Title</span><span class="seg">
+          <button data-key="titleAlign" data-value="left" aria-pressed="true">Left</button>
+          <button data-key="titleAlign" data-value="center" aria-pressed="false">Centre</button>
+          <button data-key="titleAlign" data-value="right" aria-pressed="false">Right</button>
+        </span></label>
+        <label class="ctl title-only"><span>Title size</span>
+          <input type="range" id="titlesize" min="12" max="96" step="1"></label>
         <label class="ctl"><span>Size</span>
           <input type="range" id="size" min="24" max="260" step="2"></label>
         <label class="ctl"><span>Gap X</span>
@@ -648,6 +668,8 @@ function applyView() {
   // The tile is the icon plus its label and padding. Deriving the column width
   // rather than storing it means one slider cannot produce a broken grid.
   root.setProperty('--cell', Math.max(72, state.size + 62) + 'px');
+  root.setProperty('--title-size', state.titleSize + 'px');
+  root.setProperty('--title-align', state.titleAlign);
   root.setProperty('--gap-x', state.gapX + 'px');
   root.setProperty('--gap-y', state.gapY + 'px');
   root.setProperty('--pad-x', state.padX + 'px');
@@ -694,6 +716,7 @@ function syncControls() {
   document.querySelectorAll('#controls .seg button').forEach(function (b) {
     b.setAttribute('aria-pressed', state[b.dataset.key] === b.dataset.value);
   });
+  document.getElementById('titlesize').value = state.titleSize;
   document.getElementById('size').value = state.size;
   document.getElementById('gapx').value = state.gapX;
   document.getElementById('gapy').value = state.gapY;
@@ -711,6 +734,9 @@ panel.addEventListener('click', function (ev) {
   if (!b) return;
   state[b.dataset.key] = b.dataset.value;
   applyView();
+});
+document.getElementById('titlesize').addEventListener('input', function () {
+  state.titleSize = +this.value; applyView();
 });
 document.getElementById('size').addEventListener('input', function () {
   state.size = +this.value; applyView();
@@ -753,6 +779,7 @@ document.addEventListener('keydown', function (ev) {
 
 prefsBtn.classList.add('on');
 document.getElementById('prefs').classList.toggle('has-bg', !!BOOT.hasBg);
+document.getElementById('prefs').classList.toggle('has-title', !!BOOT.hasTitle);
 applyView();
 """
 
@@ -1308,7 +1335,7 @@ EDITOR_JS = """
             'big page \u2014 this one loads on a bad link too.') +
       '<div class="field"><label for="p-upload">Upload background</label>' +
         '<input type="file" id="p-upload" accept="image/*"></div>' +
-      '<span class="hint">Layout, sort, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
+      '<span class="hint">Layout, sort, title alignment and size, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
       '<div class="actions"><button class="btn" value="cancel">Cancel</button>' +
       '<button class="btn primary" value="ok">Done</button></div></form>';
 
@@ -1344,7 +1371,8 @@ EDITOR_JS = """
     cfg = clone(BOOT.config);
     cfg.settings = Object.assign({ title: '', background: '', layout: 'flat', sort: 'az',
                                    size: 88, gapX: 8, gapY: 8, padX: 32, padY: 28,
-                                   bgDim: 72, bgTint: 'dark' },
+                                   bgDim: 72, bgTint: 'dark',
+                                   titleAlign: 'left', titleSize: 21 },
                                  cfg.settings || {});
     cfg.groups = cfg.groups || [];
     // Open the editor on whatever you are currently looking at.
@@ -1391,7 +1419,8 @@ EDITOR_JS = """
     // once with the sliders, once in a dialog — was duplication that drifted,
     // and it meant a browser with cleared site data fell back to a layout
     // nobody had chosen.
-    ['layout', 'sort', 'size', 'gapX', 'gapY', 'padX', 'padY', 'bgDim', 'bgTint']
+    ['layout', 'sort', 'size', 'gapX', 'gapY', 'padX', 'padY', 'bgDim', 'bgTint',
+     'titleAlign', 'titleSize']
       .forEach(function (k) { out.settings[k] = state[k]; });
     api('PUT', '/api/config', out)
       .then(function () { toast('Saved — reloading'); setTimeout(function () { location.reload(); }, 600); })

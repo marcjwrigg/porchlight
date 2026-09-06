@@ -150,7 +150,8 @@ def validate(cfg):
     # Missing keys take the default rather than failing: a caller that only
     # wants to change the groups should not have to restate the whole page.
     fallback = {"title": "", "background": "", "favicon": "",
-                "layout": "flat", "sort": "az", "bgTint": "dark"}
+                "layout": "flat", "sort": "az", "bgTint": "dark",
+                "titleAlign": "left"}
     out_settings = {}
     for key, default in fallback.items():
         val = settings.get(key, default)
@@ -158,7 +159,10 @@ def validate(cfg):
             val = default
         if not isinstance(val, str):
             raise ValueError(f"settings.{key} must be a string")
-        out_settings[key] = (val or default if key in ("layout", "sort", "size") else val)[:512]
+        # These are enums with a fixed set of values, so an empty string must
+        # fall back rather than reach the check below as an unhelpful "".
+        enums = ("layout", "sort", "titleAlign", "bgTint")
+        out_settings[key] = (val or default if key in enums else val)[:512]
     # Icon size used to be s/m/l. Accept the old spelling so an existing config
     # keeps working, and write it back as a number.
     legacy = {"s": 56, "m": 88, "l": 120}
@@ -168,7 +172,8 @@ def validate(cfg):
     for key, default, lo, hi in (("size", 88, 16, 400),
                                  ("gapX", 8, 0, 400), ("gapY", 8, 0, 400),
                                  ("padX", 32, 0, 1200), ("padY", 28, 0, 1200),
-                                 ("bgDim", 72, 0, 100)):
+                                 ("bgDim", 72, 0, 100),
+                                 ("titleSize", 21, 8, 200)):
         raw = size if key == "size" else settings.get(key, default)
         try:
             out_settings[key] = max(lo, min(hi, int(raw)))
@@ -180,6 +185,8 @@ def validate(cfg):
         raise ValueError("settings.sort must be az or curated")
     if out_settings["bgTint"] not in ("dark", "light"):
         raise ValueError("settings.bgTint must be dark or light")
+    if out_settings["titleAlign"] not in ("left", "center", "right"):
+        raise ValueError("settings.titleAlign must be left, center or right")
 
     groups = cfg.get("groups")
     if not isinstance(groups, list) or len(groups) > 40:
