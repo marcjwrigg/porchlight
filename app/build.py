@@ -841,6 +841,22 @@ EDITOR_JS = """
   // awkward part: the two orders are independent, so the editor now offers both
   // and writes whichever you touched.
   var editLayout = 'grouped';
+  var toldAboutSort = false;
+
+  // Dragging a tile while the page sorts A-Z is work that gets thrown away on
+  // the next render. Rather than let that happen quietly, arranging anything
+  // switches to your own order — both the saved default and, because a browser
+  // preference wins over the default, this browser's own setting.
+  function useCuratedOrder() {
+    if (cfg.settings.sort === 'curated' && state.sort === 'curated') return;
+    cfg.settings.sort = 'curated';
+    state.sort = 'curated';
+    try { localStorage.setItem(PREF, JSON.stringify(state)); } catch (e) {}
+    if (!toldAboutSort) {
+      toldAboutSort = true;
+      toast('Sorting switched from A\u2013Z to your own order', 4000);
+    }
+  }
 
   function flatten() {
     var out = [];
@@ -901,6 +917,7 @@ EDITOR_JS = """
         var moved = list.splice(from, 1)[0];
         list.splice(from < index ? index - 1 : index, 0, moved);
         renumber(list);
+        useCuratedOrder();
         render();
       });
       grid.appendChild(el);
@@ -919,6 +936,7 @@ EDITOR_JS = """
       if (isNaN(from)) return;
       list.push(list.splice(from, 1)[0]);
       renumber(list);
+      useCuratedOrder();
       render();
     });
     main.appendChild(grid);
@@ -970,7 +988,9 @@ EDITOR_JS = """
   }
 
   function swapGroup(a, b) {
-    var t = cfg.groups[a]; cfg.groups[a] = cfg.groups[b]; cfg.groups[b] = t; render();
+    var t = cfg.groups[a]; cfg.groups[a] = cfg.groups[b]; cfg.groups[b] = t;
+    useCuratedOrder();
+    render();
   }
 
   function tileEl(svc, gi, si) {
@@ -1019,6 +1039,7 @@ EDITOR_JS = """
     var dest = cfg.groups[tgi].services;
     if (fgi === tgi && tsi > fsi) tsi--;
     dest.splice(tsi < 0 ? dest.length : tsi, 0, svc);
+    useCuratedOrder();
     render();
   }
 
