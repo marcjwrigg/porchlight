@@ -1308,19 +1308,7 @@ EDITOR_JS = """
             'big page \u2014 this one loads on a bad link too.') +
       '<div class="field"><label for="p-upload">Upload background</label>' +
         '<input type="file" id="p-upload" accept="image/*"></div>' +
-      '<div class="ctl"><span>Default layout</span>' + seg('layout', [['flat', 'One grid'], ['grouped', 'Grouped']]) + '</div>' +
-      '<div class="ctl"><span>Default sort</span>' + seg('sort', [['az', 'A\\u2013Z'], ['curated', 'Curated']]) + '</div>' +
-      '<div class="ctl"><span>Default size</span><input type="range" id="p-sz" min="24" max="260" step="2" value="' +
-        (typeof s.size === 'number' ? s.size : (LEGACY[s.size] || 88)) + '"></div>' +
-      '<div class="ctl"><span>Default gap X</span><input type="range" id="p-gx" min="0" max="300" step="2" value="' + (s.gapX || 0) + '"></div>' +
-      '<div class="ctl"><span>Default gap Y</span><input type="range" id="p-gy" min="0" max="300" step="2" value="' + (s.gapY || 0) + '"></div>' +
-      '<div class="ctl"><span>Default margin X</span><input type="range" id="p-px" min="0" max="800" step="4" value="' + (s.padX || 0) + '"></div>' +
-      '<div class="ctl"><span>Default margin Y</span><input type="range" id="p-py" min="0" max="800" step="4" value="' + (s.padY || 0) + '"></div>' +
-      '<div class="ctl"><span>Default tint</span>' + seg('bgTint', [['dark', 'Dark'], ['light', 'Light']]) + '</div>' +
-      '<div class="ctl"><span>Default backdrop</span><input type="range" id="p-bd" min="0" max="100" step="1" value="' +
-        (s.bgDim == null ? 72 : s.bgDim) + '"></div>' +
-      '<span class="hint">Defaults apply to a browser that has not set its own. ' +
-      'Yours are remembered locally and are not changed by this.</span>' +
+      '<span class="hint">Layout, sort, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
       '<div class="actions"><button class="btn" value="cancel">Cancel</button>' +
       '<button class="btn primary" value="ok">Done</button></div></form>';
 
@@ -1346,12 +1334,6 @@ EDITOR_JS = """
       if (dlg.returnValue !== 'ok') return;
       s.title = dlg.querySelector('#p-title').value.trim();
       s.background = dlg.querySelector('#p-bg').value.trim();
-      s.gapX = +dlg.querySelector('#p-gx').value;
-      s.size = +dlg.querySelector('#p-sz').value;
-      s.gapY = +dlg.querySelector('#p-gy').value;
-      s.padX = +dlg.querySelector('#p-px').value;
-      s.padY = +dlg.querySelector('#p-py').value;
-      s.bgDim = +dlg.querySelector('#p-bd').value;
       toast('Applied on save');
     };
     dlg.showModal();
@@ -1405,6 +1387,12 @@ EDITOR_JS = """
     // with nothing in it renders as a heading over blank space.
     var out = clone(cfg);
     out.groups = out.groups.filter(function (g) { return (g.services || []).length; });
+    // The view you are looking at becomes the stored default. Setting it twice —
+    // once with the sliders, once in a dialog — was duplication that drifted,
+    // and it meant a browser with cleared site data fell back to a layout
+    // nobody had chosen.
+    ['layout', 'sort', 'size', 'gapX', 'gapY', 'padX', 'padY', 'bgDim', 'bgTint']
+      .forEach(function (k) { out.settings[k] = state[k]; });
     api('PUT', '/api/config', out)
       .then(function () { toast('Saved — reloading'); setTimeout(function () { location.reload(); }, 600); })
       .catch(function (e) { toast(e.message, 6000); btn.disabled = false; });

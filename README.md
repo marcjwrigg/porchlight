@@ -151,6 +151,14 @@ visitor's own choices live in their browser's `localStorage`, so a phone and a
 desktop can disagree on purpose, and changing a default never overrides a choice
 someone has already made.
 
+**You do not set those defaults by hand.** Arrange the page with the sliders,
+then **Save** in the editor — whatever you are looking at becomes the stored
+default. A browser that has never chosen, or one whose site data was cleared,
+then lands on your layout rather than a generic one. That matters more than it
+sounds: `localStorage` is site data, so "clear cookies and site data" wipes a
+device's preferences, and without a sensible stored default it comes back
+looking like nobody had ever configured it.
+
 **Tint flips the whole palette, not just the backdrop.** A white scrim under
 white labels would be unreadable, so light tint switches the text and panels with
 it. With no background image it is simply a light theme.
