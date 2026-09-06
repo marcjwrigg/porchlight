@@ -117,12 +117,13 @@ settings:
   title: ''           # blank for no heading
   background: ''      # image URL, or a filename you uploaded
   layout: flat        # flat | grouped
-  sort: az            # az | curated (the order in this file)
-  size: m             # s | m | l
+  sort: az            # az | curated
+  size: 88            # icon size in px
   gapX: 8             # px between tiles
   gapY: 8
   padX: 32            # px of page margin
   padY: 28
+  bgTint: dark        # dark | light
   bgDim: 72           # 0 = background at full strength, 100 = hidden
 
 groups:
@@ -132,12 +133,27 @@ groups:
     href: http://192.168.1.10:8096
     icon: jellyfin
     note: Shows as the tile's tooltip.
+    plate: light      # a backing shape, for icons that vanish into the page
+    pos: 0            # position in one-grid view; group order is separate
 ```
 
-`layout`, `sort`, `size` and the spacing values are **defaults**. Each visitor's
-own choices live in their browser's `localStorage`, so a phone and a desktop can
-disagree on purpose, and changing the default never overrides a choice someone
-has already made.
+`size` was `s`/`m`/`l` before it became a slider; those still read, and get
+written back as a number.
+
+`layout`, `sort`, `size`, the spacing values and the tint are **defaults**. Each
+visitor's own choices live in their browser's `localStorage`, so a phone and a
+desktop can disagree on purpose, and changing a default never overrides a choice
+someone has already made.
+
+**Tint flips the whole palette, not just the backdrop.** A white scrim under
+white labels would be unreadable, so light tint switches the text and panels with
+it. With no background image it is simply a light theme.
+
+**One-grid order is separate from grouped order.** They are genuinely different
+arrangements — a flat wall of icons is not the groups concatenated — so services
+carry an optional `pos` for the flat view, and the editor's *Grouped / One grid*
+switch decides which one you are dragging. A config with no `pos` falls back to
+the groups in sequence.
 
 ### Two things worth knowing
 
@@ -159,6 +175,9 @@ at page load.
   with no upstream artwork gets its own mark.
 - Several upstream icons are near-black and vanish on a dark page. Most have a
   `-light` variant; use it.
+- **`plate:`** puts a backing shape behind the icon for the ones that do not —
+  Tailscale is the obvious offender. `light`, `dark`, or any CSS colour, set per
+  icon in the editor next to the icon field, with a live preview.
 - A failed fetch degrades to a lettered tile rather than failing the build.
   Losing one mark is a blemish; losing the launcher because a CDN blipped is an
   outage.
