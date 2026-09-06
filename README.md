@@ -124,6 +124,7 @@ settings:
   background: ''      # image URL, or a filename you uploaded
   layout: flat        # flat | grouped
   sort: az            # az | curated
+  font: system        # system | sans | rounded | condensed | serif | mono
   titleAlign: left    # left | center | right  (only shows if title is set)
   titleSize: 21       # heading size in px
   size: 88            # icon size in px

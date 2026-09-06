@@ -87,6 +87,7 @@ DEFAULTS = {
     "favicon": "",
     "layout": "flat",
     "sort": "az",
+    "font": "system",
     "titleAlign": "left",
     # 1.3rem at the old fixed size. Stored in px because the slider is in px and
     # a rem here would drift against the tile labels, which are not scaled.
@@ -98,6 +99,20 @@ DEFAULTS = {
     "padY": 28,
     "bgDim": 72,
     "bgTint": "dark",
+}
+
+
+# Font stacks, not webfonts. The page is one self-contained file that has to work
+# on a LAN with no route out, and a Google Fonts link would both fail there and
+# tell a third party every time someone opens the launcher. These are families
+# already on the machine, each with a chain that degrades to something sane.
+FONTS = {
+    "system":    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    "sans":      '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    "rounded":   'ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", "Segoe UI", sans-serif',
+    "condensed": '"Avenir Next Condensed", "Roboto Condensed", "Arial Narrow", sans-serif',
+    "serif":     'Georgia, "Iowan Old Style", "Times New Roman", serif',
+    "mono":      'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
 }
 
 
@@ -295,9 +310,10 @@ def main():
                 for k in (
                     "layout", "sort", "size", "gapX", "gapY",
                     "padX", "padY", "bgDim", "bgTint",
-                    "titleAlign", "titleSize",
+                    "titleAlign", "titleSize", "font",
                 )
             },
+            "fonts": FONTS,
             "hasBg": bool(bg),
             # The heading is emitted server-side or not at all, so its controls
             # would be dead knobs on a page with no title.
@@ -343,6 +359,10 @@ CSS = """
 :root {
   color-scheme: dark;
   --art: 88px; --cell: 150px; --gap-x: 8px; --gap-y: 8px; --pad-x: 32px; --pad-y: 28px;
+  /* Content only. The gear panel and the editor deliberately keep the system
+     font: chrome that restyles itself with the page is harder to read, not
+     nicer, and a mono or condensed UI makes the sliders worse. */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --bg-dim: .72;
   --bg: #2b2d31; --panel: #34373d; --line: #43474e; --dim: #8f949b;
   --fg: #e6e6e6; --label: #cfd3d8; --muted: #b9bec5; --quiet: #565b63;
@@ -374,7 +394,7 @@ body {
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 h1 {
-  margin: 0 0 1.5rem; font-weight: 600;
+  margin: 0 0 1.5rem; font-weight: 600; font-family: var(--font);
   font-size: var(--title-size); text-align: var(--title-align);
 }
 
@@ -409,6 +429,17 @@ h1 {
 .ctl > span:first-child {
   font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
 }
+.ctl select {
+  appearance: none; font: inherit; font-size: .78rem; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: .25rem 1.6rem .25rem .5rem; cursor: pointer;
+  /* The arrow is drawn rather than fetched: one more request would undo the
+     point of a page that works with no route out. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%),
+                    linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+  background-position: right .78rem center, right .55rem center;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
 .seg { display: flex; background: var(--bg); border-radius: 8px; padding: 2px; }
 .seg button {
   appearance: none; border: 0; background: transparent; color: var(--muted);
@@ -425,7 +456,7 @@ h1 {
 .linkish:hover { filter: brightness(1.25); }
 
 h2 {
-  margin: 2.25rem 0 1rem; font-size: .7rem; font-weight: 600;
+  margin: 2.25rem 0 1rem; font-size: .7rem; font-weight: 600; font-family: var(--font);
   letter-spacing: .14em; text-transform: uppercase; color: var(--dim);
 }
 main > h2:first-child { margin-top: 0; }
@@ -451,9 +482,13 @@ main > h2:first-child { margin-top: 0; }
 .letters {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%; border-radius: 18%;
+  font-family: var(--font);
   font-size: calc(var(--art) / 3); font-weight: 600; color: #fff;
 }
-.label { font-size: .85rem; text-align: center; line-height: 1.25; color: var(--label); overflow-wrap: anywhere; }
+.label {
+  font-family: var(--font);
+  font-size: .85rem; text-align: center; line-height: 1.25; color: var(--label); overflow-wrap: anywhere;
+}
 """
 
 EDITOR_CSS = """
@@ -601,6 +636,15 @@ CONTROLS = f"""    <div id="prefs">
           <button data-key="sort" data-value="az" aria-pressed="true">A&ndash;Z</button>
           <button data-key="sort" data-value="curated" aria-pressed="false">Curated</button>
         </span></label>
+        <label class="ctl"><span>Font</span>
+          <select id="font">
+            <option value="system">System</option>
+            <option value="sans">Sans</option>
+            <option value="rounded">Rounded</option>
+            <option value="condensed">Condensed</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Mono</option>
+          </select></label>
         <label class="ctl title-only"><span>Title</span><span class="seg">
           <button data-key="titleAlign" data-value="left" aria-pressed="true">Left</button>
           <button data-key="titleAlign" data-value="center" aria-pressed="false">Centre</button>
@@ -668,6 +712,7 @@ function applyView() {
   // The tile is the icon plus its label and padding. Deriving the column width
   // rather than storing it means one slider cannot produce a broken grid.
   root.setProperty('--cell', Math.max(72, state.size + 62) + 'px');
+  root.setProperty('--font', BOOT.fonts[state.font] || BOOT.fonts.system);
   root.setProperty('--title-size', state.titleSize + 'px');
   root.setProperty('--title-align', state.titleAlign);
   root.setProperty('--gap-x', state.gapX + 'px');
@@ -716,6 +761,7 @@ function syncControls() {
   document.querySelectorAll('#controls .seg button').forEach(function (b) {
     b.setAttribute('aria-pressed', state[b.dataset.key] === b.dataset.value);
   });
+  document.getElementById('font').value = state.font;
   document.getElementById('titlesize').value = state.titleSize;
   document.getElementById('size').value = state.size;
   document.getElementById('gapx').value = state.gapX;
@@ -734,6 +780,9 @@ panel.addEventListener('click', function (ev) {
   if (!b) return;
   state[b.dataset.key] = b.dataset.value;
   applyView();
+});
+document.getElementById('font').addEventListener('change', function () {
+  state.font = this.value; applyView();
 });
 document.getElementById('titlesize').addEventListener('input', function () {
   state.titleSize = +this.value; applyView();
@@ -1335,7 +1384,7 @@ EDITOR_JS = """
             'big page \u2014 this one loads on a bad link too.') +
       '<div class="field"><label for="p-upload">Upload background</label>' +
         '<input type="file" id="p-upload" accept="image/*"></div>' +
-      '<span class="hint">Layout, sort, title alignment and size, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
+      '<span class="hint">Layout, sort, font, title alignment and size, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
       '<div class="actions"><button class="btn" value="cancel">Cancel</button>' +
       '<button class="btn primary" value="ok">Done</button></div></form>';
 
@@ -1372,7 +1421,8 @@ EDITOR_JS = """
     cfg.settings = Object.assign({ title: '', background: '', layout: 'flat', sort: 'az',
                                    size: 88, gapX: 8, gapY: 8, padX: 32, padY: 28,
                                    bgDim: 72, bgTint: 'dark',
-                                   titleAlign: 'left', titleSize: 21 },
+                                   titleAlign: 'left', titleSize: 21,
+                                   font: 'system' },
                                  cfg.settings || {});
     cfg.groups = cfg.groups || [];
     // Open the editor on whatever you are currently looking at.
@@ -1420,7 +1470,7 @@ EDITOR_JS = """
     // and it meant a browser with cleared site data fell back to a layout
     // nobody had chosen.
     ['layout', 'sort', 'size', 'gapX', 'gapY', 'padX', 'padY', 'bgDim', 'bgTint',
-     'titleAlign', 'titleSize']
+     'titleAlign', 'titleSize', 'font']
       .forEach(function (k) { out.settings[k] = state[k]; });
     api('PUT', '/api/config', out)
       .then(function () { toast('Saved — reloading'); setTimeout(function () { location.reload(); }, 600); })

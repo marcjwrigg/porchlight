@@ -18,6 +18,10 @@ settings:
   # is kept in localStorage and is never overridden by these.
   layout: flat        # flat | grouped
   sort: az            # az | curated  (curated = the order in this file)
+  # Applies to the title, group headings and tile labels - not to the gear
+  # panel or the editor. System stacks only: no webfont is fetched, so the page
+  # still works with no route out.
+  font: system        # system | sans | rounded | condensed | serif | mono
   # The heading's own controls appear only when `title` above is set.
   titleAlign: left    # left | center | right
   titleSize: 21       # heading size in px

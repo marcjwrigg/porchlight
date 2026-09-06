@@ -38,6 +38,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import yaml
 
+# The font names are shared with the generator rather than restated. Keeping a
+# second copy here is precisely how the two drifted apart before — see the note
+# in the lab's porchlight/README.md. api.py already lives beside build.py, so
+# this costs nothing.
+from build import FONTS
+
 HERE = pathlib.Path(__file__).resolve().parent
 # Code and data are separate: the code is whatever you checked out, the data is
 # yours. An upgrade replaces one and must never touch the other.
@@ -151,7 +157,7 @@ def validate(cfg):
     # wants to change the groups should not have to restate the whole page.
     fallback = {"title": "", "background": "", "favicon": "",
                 "layout": "flat", "sort": "az", "bgTint": "dark",
-                "titleAlign": "left"}
+                "titleAlign": "left", "font": "system"}
     out_settings = {}
     for key, default in fallback.items():
         val = settings.get(key, default)
@@ -161,7 +167,7 @@ def validate(cfg):
             raise ValueError(f"settings.{key} must be a string")
         # These are enums with a fixed set of values, so an empty string must
         # fall back rather than reach the check below as an unhelpful "".
-        enums = ("layout", "sort", "titleAlign", "bgTint")
+        enums = ("layout", "sort", "titleAlign", "bgTint", "font")
         out_settings[key] = (val or default if key in enums else val)[:512]
     # Icon size used to be s/m/l. Accept the old spelling so an existing config
     # keeps working, and write it back as a number.
@@ -187,6 +193,10 @@ def validate(cfg):
         raise ValueError("settings.bgTint must be dark or light")
     if out_settings["titleAlign"] not in ("left", "center", "right"):
         raise ValueError("settings.titleAlign must be left, center or right")
+    # An unknown name is rejected rather than ignored: silently falling back
+    # would look like the setting did not save.
+    if out_settings["font"] not in FONTS:
+        raise ValueError("settings.font must be one of " + ", ".join(FONTS))
 
     groups = cfg.get("groups")
     if not isinstance(groups, list) or len(groups) > 40:
