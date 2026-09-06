@@ -16,7 +16,41 @@ env:
   HUB_IMAGE: ${{ vars.DOCKERHUB_USERNAME && format('{0}/porchlight', vars.DOCKERHUB_USERNAME) || '' }}
 
 jobs:
+  # Two failure modes this project has actually shipped: a Python escape that is
+  # a warning today and an error on a future interpreter, and a quoting mistake
+  # in the JavaScript that lives inside a Python string, which took the whole
+  # editor out silently. Both are caught here in seconds.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: pip install --quiet pyyaml
+
+      - name: Python compiles with no SyntaxWarning
+        run: |
+          python -W error::SyntaxWarning -m py_compile \
+            app/build.py app/api.py catalog/validate.py
+
+      - name: Generated JavaScript parses
+        run: |
+          PORCHLIGHT_CONFIG=config.example.yaml python app/build.py
+          python - <<'EOF'
+          import pathlib, re
+          src = pathlib.Path('public/index.html').read_text()
+          pathlib.Path('/tmp/porchlight.js').write_text(
+              re.findall(r'<script>(.*?)</script>', src, re.S)[-1])
+          EOF
+          node --check /tmp/porchlight.js
+
+      - name: Catalogue icons all resolve
+        run: python catalog/validate.py
+
   build:
+    needs: lint
     runs-on: ubuntu-latest
     permissions:
       contents: read

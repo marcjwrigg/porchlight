@@ -805,11 +805,11 @@ EDITOR_JS = """
   // no error, just the wrong place.
   function normaliseHref(raw) {
     var h = (raw || '').trim();
-    if (!h || h.indexOf('://') > -1 || /^[\/#]|^mailto:/.test(h)) return h;
+    if (!h || h.indexOf('://') > -1 || /^[/#]|^mailto:/.test(h)) return h;
     var host = h.split('/')[0];
-    if (/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(host)) return 'http://' + h;
+    if (/^\\d{1,3}(\\.\\d{1,3}){3}(:\\d+)?$/.test(host)) return 'http://' + h;
     var port = host.indexOf(':') > -1 ? host.split(':').pop() : '';
-    if (/^\d+$/.test(port) && port !== '443') return 'http://' + h;
+    if (/^\\d+$/.test(port) && port !== '443') return 'http://' + h;
     return 'https://' + h;
   }
   function colourFor(n) {
