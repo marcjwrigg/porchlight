@@ -115,10 +115,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Keeps the Hub page in step with the README instead of being a blank
-      # box. continue-on-error because Docker Hub's description endpoint has
-      # historically wanted an account password rather than an access token —
-      # if it refuses the PAT, the images still publish and only this is skipped.
+      # Syncs the SHORT description only. Observed 2026-09-06: with an access
+      # token this sets the one-liner but silently leaves the full description
+      # empty — that endpoint wants an account password, which is not worth
+      # storing here for a README. Paste the README into the Hub page by hand
+      # once; it changes rarely. continue-on-error so this can never fail a
+      # publish.
       - name: Docker Hub description
         if: >-
           github.event_name != 'pull_request'
