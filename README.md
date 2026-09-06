@@ -72,6 +72,12 @@ without the volume every edit dies with the container.
 To build from source instead, clone the repo and `docker compose up -d --build`
 with `build: .` uncommented in the compose file.
 
+### Proxmox VE
+
+Scripts for the [community-scripts](https://github.com/community-scripts/ProxmoxVE)
+helper project live in [`packaging/proxmox/`](packaging/proxmox/). They build an
+unprivileged Debian 13 LXC and install into it.
+
 ### Behind a reverse proxy
 
 Point it at the container or host on port 80 and you are done. Porchlight does
