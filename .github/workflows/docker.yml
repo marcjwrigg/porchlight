@@ -115,6 +115,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Keeps the Hub page in step with the README instead of being a blank
+      # box. continue-on-error because Docker Hub's description endpoint has
+      # historically wanted an account password rather than an access token —
+      # if it refuses the PAT, the images still publish and only this is skipped.
+      - name: Docker Hub description
+        if: >-
+          github.event_name != 'pull_request'
+          && steps.hub.outputs.enabled == 'true'
+          && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_USERNAME }}/porchlight
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md
+
       # A published image that does not start is worse than no image. Boot the
       # amd64 one and require a real page and a real API response.
       - name: Smoke test
