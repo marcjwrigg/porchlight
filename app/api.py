@@ -209,7 +209,7 @@ def validate(cfg):
                     entry["pos"] = max(0, min(9999, int(svc["pos"])))
                 except (TypeError, ValueError):
                     raise ValueError(f"{name}: pos must be a number")
-            for key in ("icon", "icon_url", "note"):
+            for key in ("icon", "icon_url", "note", "plate"):
                 val = (svc.get(key) or "").strip()
                 if val:
                     entry[key] = val[:2048]

@@ -70,6 +70,17 @@ def normalise_href(raw):
 # service does not change colour when its neighbours are edited.
 PALETTE = ["#4f7cac", "#7a5c9e", "#3f8f6f", "#b0703c", "#a4515f", "#4a6fa5"]
 
+# A backing shape behind an icon, for marks that vanish into the page. Tailscale
+# and Vaultwarden are near-black; on a dark background they read as empty space.
+# Two keywords cover almost every case, and anything else is taken as a CSS
+# colour so an odd one can be matched exactly.
+PLATES = {"light": "#ffffff", "dark": "#1c1e21"}
+
+
+def plate_colour(value):
+    v = (value or "").strip()
+    return PLATES.get(v.lower(), v) if v else ""
+
 DEFAULTS = {
     "title": "",
     "background": "",
@@ -128,6 +139,13 @@ def tile(svc, group, order, files, pos):
     icon_file = files.get(slug) if slug else None
     if icon_file:
         art = f'<img src="icons/{html.escape(icon_file)}" alt="" loading="lazy">'
+        # Only for real artwork: a lettered tile already has its own backing.
+        plate = plate_colour(svc.get("plate"))
+        if plate:
+            art = (
+                f'<span class="plate" style="background:'
+                f'{html.escape(plate, quote=True)}">{art}</span>'
+            )
     else:
         art = (
             f'<span class="letters" style="background:{colour_for(name)}">'
@@ -412,6 +430,11 @@ main > h2:first-child { margin-top: 0; }
 .tile:hover, .tile:focus-visible { background: var(--panel); border-color: var(--line); outline: none; }
 .art { display: flex; align-items: center; justify-content: center; width: var(--art); height: var(--art); }
 .art img { width: 100%; height: 100%; object-fit: contain; }
+.plate {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; border-radius: 18%; padding: 11%;
+}
+.plate img { width: 100%; height: 100%; object-fit: contain; }
 .letters {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%; border-radius: 18%;
@@ -502,6 +525,11 @@ dialog h3 { margin: 0; font-size: .95rem; }
 }
 .preview img { width: 100%; height: 100%; object-fit: contain; }
 .preview .letters { border-radius: 18%; font-size: 1rem; }
+.preview .plate { border-radius: 18%; padding: 10%; }
+#f-platec {
+  width: 34px; height: 30px; padding: 2px; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+}
 .actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .3rem; }
 .actions .grow { margin-right: auto; }
 /* ── catalogue picker ───────────────────────────────────────────────────── */
@@ -791,9 +819,20 @@ EDITOR_JS = """
   }
 
   // ── rendering the editable board ──────────────────────────────────────
+  var PLATES = { light: '#ffffff', dark: '#1c1e21' };
+  function plateColour(v) {
+    v = (v || '').trim();
+    return v ? (PLATES[v.toLowerCase()] || v) : '';
+  }
+
   function art(svc) {
     var src = iconSrc(svc);
-    if (src) return '<span class="art"><img src="' + esc(src) + '" alt=""></span>';
+    if (src) {
+      var img = '<img src="' + esc(src) + '" alt="">';
+      var pc = plateColour(svc.plate);
+      if (pc) img = '<span class="plate" style="background:' + esc(pc) + '">' + img + '</span>';
+      return '<span class="art">' + img + '</span>';
+    }
     return '<span class="art"><span class="letters" style="background:' + colourFor(svc.name) +
            '">' + initials(svc.name) + '</span></span>';
   }
@@ -1137,11 +1176,28 @@ EDITOR_JS = """
             'a YAML comment does not.') +
       '<div class="field"><label for="f-upload">Or upload</label>' +
         '<input type="file" id="f-upload" accept="image/*"></div>' +
+      '<div class="field"><label>Icon plate</label><div class="row">' +
+        '<span class="seg" id="f-plate">' +
+          '<button type="button" data-v="">None</button>' +
+          '<button type="button" data-v="light">Light</button>' +
+          '<button type="button" data-v="dark">Dark</button>' +
+        '</span>' +
+        '<input type="color" id="f-platec" title="Custom colour" value="' +
+          (/^#[0-9a-f]{6}$/i.test(svc.plate || '') ? svc.plate : '#ffffff') + '">' +
+      '</div><span class="hint">A shape behind the icon, for marks that vanish into ' +
+      'the page \u2014 Tailscale and Vaultwarden are near-black.</span></div>' +
       '<div class="actions">' +
         (isNew ? '' : '<button class="btn danger grow" value="delete">Delete</button>') +
         '<button class="btn" value="cancel">Cancel</button>' +
         '<button class="btn primary" value="ok">Done</button>' +
       '</div></form>';
+
+    var plate = svc.plate || '';
+    function syncPlate() {
+      dlg.querySelectorAll('#f-plate button').forEach(function (b) {
+        b.setAttribute('aria-pressed', b.dataset.v === plate);
+      });
+    }
 
     function paint() {
       // Build the preview directly rather than reusing art(): that wraps the
@@ -1151,10 +1207,14 @@ EDITOR_JS = """
                     icon: dlg.querySelector('#f-icon').value.trim(),
                     icon_url: dlg.querySelector('#f-iconurl').value.trim() };
       var src = iconSrc(probe);
+      var pc = plateColour(plate);
       dlg.querySelector('#f-prev').innerHTML = src
-        ? '<img src="' + esc(src) + '" alt="">'
+        ? (pc ? '<span class="plate" style="background:' + esc(pc) + '"><img src="' +
+                esc(src) + '" alt=""></span>'
+              : '<img src="' + esc(src) + '" alt="">')
         : '<span class="letters" style="background:' + colourFor(probe.name) + '">' +
           initials(probe.name) + '</span>';
+      syncPlate();
     }
     ['f-name', 'f-icon', 'f-iconurl'].forEach(function (id) {
       dlg.querySelector('#' + id).addEventListener('input', paint);
@@ -1162,6 +1222,17 @@ EDITOR_JS = """
     dlg.querySelector('#f-href').addEventListener('blur', function () {
       this.value = normaliseHref(this.value);
     });
+    dlg.querySelector('#f-plate').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button');
+      if (!b) return;
+      plate = b.dataset.v;
+      paint();
+    });
+    dlg.querySelector('#f-platec').addEventListener('input', function () {
+      plate = this.value;
+      paint();
+    });
+
     dlg.querySelector('#f-upload').addEventListener('change', function () {
       var file = this.files[0]; if (!file) return;
       api('POST', '/api/asset?kind=icon&name=' + encodeURIComponent(file.name), file, true)
@@ -1187,6 +1258,8 @@ EDITOR_JS = """
       if (u) out.icon_url = u;
       var note = dlg.querySelector('#f-note').value.trim();
       if (note) out.note = note;
+      if (plate) out.plate = plate;
+      if (svc.pos != null) out.pos = svc.pos;
       if (!out.name) { toast('A service needs a name'); return; }
       var tgi = +dlg.querySelector('#f-group').value;
       if (isNew) cfg.groups[tgi].services.push(out);
