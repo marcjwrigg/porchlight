@@ -1,0 +1,101 @@
+name: image
+
+# Publishes to GHCR always, and to Docker Hub only if the two secrets exist —
+# so a fork, or this repo before Docker Hub is set up, still gets images
+# instead of a red X.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  HUB_IMAGE: ${{ vars.DOCKERHUB_USERNAME && format('{0}/porchlight', vars.DOCKERHUB_USERNAME) || '' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Is Docker Hub configured?
+        id: hub
+        run: |
+          if [ -n "${{ vars.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker Hub not configured — publishing to GHCR only."
+          fi
+
+      # arm64 matters here: a lot of this audience runs a Pi or an N100.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request' && steps.hub.outputs.enabled == 'true'
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ steps.hub.outputs.enabled == 'true' && env.HUB_IMAGE || '' }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=Porchlight
+            org.opencontainers.image.description=A static launcher for self-hosted services
+            org.opencontainers.image.licenses=MIT
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          # A pull request builds but does not publish, so a fork cannot push
+          # to your registry.
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A published image that does not start is worse than no image. Boot the
+      # amd64 one and require a real page and a real API response.
+      - name: Smoke test
+        if: github.event_name != 'pull_request'
+        run: |
+          docker run -d --name pl -p 8085:80 -v "$PWD/_data:/data" \
+            ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }}
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/ || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "page:    $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/)"
+          echo "api:     $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/api/config)"
+          echo "catalog: $(curl -s http://127.0.0.1:8085/catalog.json | head -c 40)"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8085/api/config)" = "200"
+          docker logs pl

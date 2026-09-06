@@ -6,7 +6,15 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends nginx python3 python3-yaml ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+# Every path is stated. api.py derives its own from PORCHLIGHT_DIR, but the
+# entrypoint invokes build.py directly, and build.py defaults relative to its
+# own location — /app — not to the data volume. Leaving the rest implicit means
+# the first start looks for /app/config.yaml, does not find it, and the
+# container dies before it ever serves a page.
 ENV PORCHLIGHT_DIR=/data \
+    PORCHLIGHT_CONFIG=/data/config.yaml \
+    PORCHLIGHT_ICONS=/data/icons \
+    PORCHLIGHT_BG=/data/bg \
     PORCHLIGHT_OUT=/srv/public \
     PORCHLIGHT_CATALOG=/app/catalog/apps.yaml \
     PORCHLIGHT_PORT=8088

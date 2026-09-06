@@ -52,14 +52,25 @@ catalogue icon up front for a fully offline box.
 ### Docker
 
 ```bash
-git clone https://github.com/marcjwrigg/porchlight
-cd porchlight
-docker compose up -d --build
+docker run -d --name porchlight -p 8085:80 \
+  -v porchlight-data:/data \
+  ghcr.io/marcjwrigg/porchlight:latest
 ```
 
-Then <http://localhost:8085>. **Mount `/data`** — your config, icons,
-backgrounds and backups live there, and without the volume every edit dies
-with the container.
+Or with compose:
+
+```bash
+curl -O https://raw.githubusercontent.com/marcjwrigg/porchlight/main/docker-compose.yml
+docker compose up -d
+```
+
+Then <http://localhost:8085>. Images are built for **amd64 and arm64**.
+
+**Mount `/data`** — your config, icons, backgrounds and backups live there, and
+without the volume every edit dies with the container.
+
+To build from source instead, clone the repo and `docker compose up -d --build`
+with `build: .` uncommented in the compose file.
 
 ### Behind a reverse proxy
 

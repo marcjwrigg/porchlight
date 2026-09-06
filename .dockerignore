@@ -1,0 +1,12 @@
+# Build context is the source, not anyone's instance.
+.git
+.github
+data/
+public/
+icons/
+bg/
+backup/
+config.yaml
+docs/
+*.md
+!README.md

@@ -1,7 +1,8 @@
 services:
   porchlight:
-    build: .
-    # image: ghcr.io/marcjwrigg/porchlight:latest
+    image: ghcr.io/marcjwrigg/porchlight:latest
+    # Building from source instead: comment out `image` and uncomment this.
+    # build: .
     container_name: porchlight
     restart: unless-stopped
     ports:
