@@ -12,11 +12,18 @@ settings:
   title: ''
   # An image URL, or a filename you uploaded (served from bg/). Blank for none.
   background: ''
+  # A logo for the header. An image URL, or a filename you uploaded (served
+  # from logo/). Shows above the title - set both, or just one of them.
+  logo: ''
+  logoHeight: 48      # px tall; the width follows so any aspect ratio works
   favicon: ''
 
   # Defaults for a browser that has not set its own. Each visitor's own choice
   # is kept in localStorage and is never overridden by these.
   layout: flat        # flat | grouped
+  # Side-by-side groups. Ignored by the flat layout, and collapses to one
+  # column under 900px wide whatever it is set to.
+  groupCols: 1        # 1 | 2 | 3
   sort: az            # az | curated  (curated = the order in this file)
   # Applies to the title, group headings and tile labels - not to the gear
   # panel or the editor. System stacks only: no webfont is fetched, so the page

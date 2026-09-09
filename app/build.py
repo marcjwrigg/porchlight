@@ -37,6 +37,7 @@ ROOT = HERE.parent
 CONFIG = pathlib.Path(os.environ.get("PORCHLIGHT_CONFIG", ROOT / "config.yaml"))
 ICON_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_ICONS", ROOT / "icons"))
 BG_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_BG", ROOT / "bg"))
+LOGO_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_LOGO", ROOT / "logo"))
 OUT_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_OUT", ROOT / "public"))
 CATALOG = pathlib.Path(os.environ.get("PORCHLIGHT_CATALOG", ROOT / "catalog" / "apps.yaml"))
 ICON_PNG = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/{}.png"
@@ -84,11 +85,15 @@ def plate_colour(value):
 DEFAULTS = {
     "title": "",
     "background": "",
+    "logo": "",
+    "logoHeight": 48,
     "favicon": "",
     "layout": "flat",
     "sort": "az",
     "font": "system",
     "titleAlign": "left",
+    # Grouped layout only. 1 keeps the stacked look.
+    "groupCols": 1,
     # 1.3rem at the old fixed size. Stored in px because the slider is in px and
     # a rem here would drift against the tile labels, which are not scaled.
     "titleSize": 21,
@@ -247,7 +252,7 @@ def main():
             # letters and the page still ships. Losing one mark is a blemish;
             # losing the launcher because a CDN blipped is an outage.
             print(f"    !! {slug}: {exc} — falling back to a lettered tile")
-    for name, src in (("icons", ICON_DIR), ("bg", BG_DIR)):
+    for name, src in (("icons", ICON_DIR), ("bg", BG_DIR), ("logo", LOGO_DIR)):
         dst = OUT_DIR / name
         if not src.exists():
             continue
@@ -322,9 +327,19 @@ def main():
             " background:rgba(var(--scrim),var(--bg-dim)); }\n"
         )
 
+    # A bare filename means an upload, served from logo/. Anything with a scheme
+    # or a leading slash is used as given, so an externally hosted mark works too.
+    logo = (settings.get("logo") or "").strip()
+    if logo and not re.match(r"^([a-z][a-z0-9+.-]*:|/)", logo, re.I):
+        logo = f"logo/{logo}"
+    header_logo = (
+        f'    <img class="logo" src="{html.escape(logo, quote=True)}" alt="">\n'
+        if logo else ""
+    )
+
     title = settings.get("title") or ""
     header_title = (
-        f'    <h1>{html.escape(title)}</h1>\n' if title else ""
+        header_logo + (f'    <h1>{html.escape(title)}</h1>\n' if title else "")
     )
 
     boot = json.dumps(
@@ -336,6 +351,7 @@ def main():
                     "layout", "sort", "size", "gapX", "gapY",
                     "padX", "padY", "bgDim", "bgTint",
                     "titleAlign", "titleSize", "font",
+                    "logoHeight", "groupCols",
                 )
             },
             "fonts": FONTS,
@@ -343,6 +359,7 @@ def main():
             # The heading is emitted server-side or not at all, so its controls
             # would be dead knobs on a page with no title.
             "hasTitle": bool(title),
+            "hasLogo": bool(settings.get("logo")),
             "config": cfg,
             "iconFiles": files,
         },
@@ -388,6 +405,7 @@ CSS = """
      font: chrome that restyles itself with the page is harder to read, not
      nicer, and a mono or condensed UI makes the sliders worse. */
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --logo-height: 48px; --group-cols: 1;
   --bg-dim: .72;
   --bg: #2b2d31; --panel: #34373d; --line: #43474e; --dim: #8f949b;
   --fg: #e6e6e6; --label: #cfd3d8; --muted: #b9bec5; --quiet: #565b63;
@@ -422,6 +440,16 @@ h1 {
   margin: 0 0 1.5rem; font-weight: 600; font-family: var(--font);
   font-size: var(--title-size); text-align: var(--title-align);
 }
+/* Height drives the size and width follows, so a wordmark and a square badge
+   both behave. `display:block` plus auto margins is what makes text-align's
+   centre and right apply to a replaced element. */
+.logo {
+  display: block; height: var(--logo-height); width: auto; max-width: 100%;
+  margin-bottom: 1rem; object-fit: contain;
+}
+header:has(.logo) h1 { margin-top: 0; }
+body.align-center .logo { margin-left: auto; margin-right: auto; }
+body.align-right .logo { margin-left: auto; margin-right: 0; }
 
 /* The launcher is tiles. Layout is a preference you set once, so it lives
    behind one quiet button rather than occupying the top of every visit. */
@@ -450,6 +478,12 @@ h1 {
 #prefs.has-bg #controls .bg-only { display: flex; }
 #controls .title-only { display: none; }
 #prefs.has-title #controls .title-only { display: flex; }
+#controls .logo-only { display: none; }
+#prefs.has-logo #controls .logo-only { display: flex; }
+/* Columns only mean anything with headings on screen. Driven by a body class
+   rather than the panel's, because the layout can change without a reload. */
+#controls .grouped-only { display: none; }
+body.grouped #controls .grouped-only { display: flex; }
 .ctl { display: flex; align-items: center; gap: 1rem; justify-content: space-between; }
 .ctl > span:first-child {
   font-size: .66rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
@@ -485,6 +519,17 @@ h2 {
   letter-spacing: .14em; text-transform: uppercase; color: var(--dim);
 }
 main > h2:first-child { margin-top: 0; }
+/* Grouped layout can sit groups side by side. Each group is one section so a
+   heading never separates from its own tiles across a column boundary. */
+main.cols { display: grid; column-gap: calc(var(--gap-x) + 1.5rem); align-items: start; }
+main.cols { grid-template-columns: repeat(var(--group-cols), minmax(0, 1fr)); }
+main.cols > section > h2:first-child { margin-top: 0; }
+main.cols > section + section { margin-top: 0; }
+/* Columns are a wide-screen affordance. Below this they would make the tiles
+   too small to hit, so they collapse regardless of the setting. */
+@media (max-width: 900px) {
+  main.cols { grid-template-columns: 1fr; }
+}
 .grid {
   display: grid; column-gap: var(--gap-x); row-gap: var(--gap-y);
   grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr));
@@ -670,6 +715,13 @@ CONTROLS = f"""    <div id="prefs">
             <option value="serif">Serif</option>
             <option value="mono">Mono</option>
           </select></label>
+        <label class="ctl grouped-only"><span>Columns</span><span class="seg">
+          <button data-key="groupCols" data-value="1" aria-pressed="true">1</button>
+          <button data-key="groupCols" data-value="2" aria-pressed="false">2</button>
+          <button data-key="groupCols" data-value="3" aria-pressed="false">3</button>
+        </span></label>
+        <label class="ctl logo-only"><span>Logo size</span>
+          <input type="range" id="logoheight" min="12" max="240" step="2"></label>
         <label class="ctl title-only"><span>Title</span><span class="seg">
           <button data-key="titleAlign" data-value="left" aria-pressed="true">Left</button>
           <button data-key="titleAlign" data-value="center" aria-pressed="false">Centre</button>
@@ -740,6 +792,12 @@ function applyView() {
   root.setProperty('--font', BOOT.fonts[state.font] || BOOT.fonts.system);
   root.setProperty('--title-size', state.titleSize + 'px');
   root.setProperty('--title-align', state.titleAlign);
+  root.setProperty('--logo-height', state.logoHeight + 'px');
+  root.setProperty('--group-cols', state.groupCols);
+  // text-align does not move a block image, so the alignment is mirrored onto
+  // body classes that the logo's auto margins key off.
+  document.body.classList.toggle('align-center', state.titleAlign === 'center');
+  document.body.classList.toggle('align-right', state.titleAlign === 'right');
   root.setProperty('--gap-x', state.gapX + 'px');
   root.setProperty('--gap-y', state.gapY + 'px');
   root.setProperty('--pad-x', state.padX + 'px');
@@ -761,6 +819,8 @@ function applyView() {
   var sorted = tiles.slice().sort(state.sort === 'az' ? byName : curated);
 
   main.textContent = '';
+  main.classList.toggle('cols',
+    state.layout === 'grouped' && +state.groupCols > 1);
   if (state.layout === 'grouped') {
     BOOT.groups.forEach(function (g) {
       var mine = sorted.filter(function (t) { return t.dataset.group === g; });
@@ -770,8 +830,17 @@ function applyView() {
       var grid = document.createElement('div');
       grid.className = 'grid';
       mine.forEach(function (t) { grid.appendChild(t); });
-      main.appendChild(h);
-      main.appendChild(grid);
+      // Wrapped so a column break can never land between a heading and its
+      // tiles. Single-column keeps the old flat structure so nothing shifts.
+      if (+state.groupCols > 1) {
+        var sec = document.createElement('section');
+        sec.appendChild(h);
+        sec.appendChild(grid);
+        main.appendChild(sec);
+      } else {
+        main.appendChild(h);
+        main.appendChild(grid);
+      }
     });
   } else {
     var grid = document.createElement('div');
@@ -788,6 +857,8 @@ function syncControls() {
   });
   document.getElementById('font').value = state.font;
   document.getElementById('titlesize').value = state.titleSize;
+  document.getElementById('logoheight').value = state.logoHeight;
+  document.body.classList.toggle('grouped', state.layout === 'grouped');
   document.getElementById('size').value = state.size;
   document.getElementById('gapx').value = state.gapX;
   document.getElementById('gapy').value = state.gapY;
@@ -808,6 +879,9 @@ panel.addEventListener('click', function (ev) {
 });
 document.getElementById('font').addEventListener('change', function () {
   state.font = this.value; applyView();
+});
+document.getElementById('logoheight').addEventListener('input', function () {
+  state.logoHeight = +this.value; applyView();
 });
 document.getElementById('titlesize').addEventListener('input', function () {
   state.titleSize = +this.value; applyView();
@@ -854,6 +928,7 @@ document.addEventListener('keydown', function (ev) {
 prefsBtn.classList.add('on');
 document.getElementById('prefs').classList.toggle('has-bg', !!BOOT.hasBg);
 document.getElementById('prefs').classList.toggle('has-title', !!BOOT.hasTitle);
+document.getElementById('prefs').classList.toggle('has-logo', !!BOOT.hasLogo);
 applyView();
 """
 
@@ -1413,12 +1488,17 @@ EDITOR_JS = """
     dlg.innerHTML = '<form method="dialog">' +
       '<h3>Page settings</h3>' +
       field('Title', 'p-title', s.title || '', 'Blank for no heading.') +
+      field('Logo', 'p-logo', s.logo || '',
+            'An image URL, or a filename already uploaded. Blank for none. Shows above ' +
+            'the title \u2014 set both, or just one.') +
+      '<div class="field"><label for="p-logo-upload">Upload logo</label>' +
+        '<input type="file" id="p-logo-upload" accept="image/*"></div>' +
       field('Background', 'p-bg', s.background || '',
             'An image URL, or a filename already uploaded. Blank for none. A big photo is a ' +
             'big page \u2014 this one loads on a bad link too.') +
       '<div class="field"><label for="p-upload">Upload background</label>' +
         '<input type="file" id="p-upload" accept="image/*"></div>' +
-      '<span class="hint">Layout, sort, font, title alignment and size, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
+      '<span class="hint">Layout, sort, font, columns, logo size, title alignment and size, icon size, spacing and tint are not set here. Arrange the page with the sliders, and <b>Save</b> stores that arrangement as the default for any browser that has not chosen its own \u2014 a new phone, or one whose site data was cleared. Your own choices stay yours.</span>' +
       '<div class="actions"><button class="btn" value="cancel">Cancel</button>' +
       '<button class="btn primary" value="ok">Done</button></div></form>';
 
@@ -1429,6 +1509,15 @@ EDITOR_JS = """
           o.setAttribute('aria-pressed', o.dataset.v === b.dataset.v);
         });
       });
+    });
+    dlg.querySelector('#p-logo-upload').addEventListener('change', function () {
+      var file = this.files[0]; if (!file) return;
+      api('POST', '/api/asset?kind=logo&name=' + encodeURIComponent(file.name), file, true)
+        .then(function (j) {
+          dlg.querySelector('#p-logo').value = j.file;
+          toast('Uploaded ' + j.file + ' \u2014 press Done, then Save', 6000);
+        })
+        .catch(function (e) { toast(e.message, 6000); });
     });
     dlg.querySelector('#p-upload').addEventListener('change', function () {
       var file = this.files[0]; if (!file) return;
@@ -1443,6 +1532,7 @@ EDITOR_JS = """
     dlg.onclose = function () {
       if (dlg.returnValue !== 'ok') return;
       s.title = dlg.querySelector('#p-title').value.trim();
+      s.logo = dlg.querySelector('#p-logo').value.trim();
       s.background = dlg.querySelector('#p-bg').value.trim();
       toast('Applied on save');
     };
@@ -1456,7 +1546,8 @@ EDITOR_JS = """
                                    size: 88, gapX: 8, gapY: 8, padX: 32, padY: 28,
                                    bgDim: 72, bgTint: 'dark',
                                    titleAlign: 'left', titleSize: 21,
-                                   font: 'system' },
+                                   font: 'system', logo: '', logoHeight: 48,
+                                   groupCols: 1 },
                                  cfg.settings || {});
     cfg.groups = cfg.groups || [];
     // Open the editor on whatever you are currently looking at.
@@ -1504,7 +1595,7 @@ EDITOR_JS = """
     // and it meant a browser with cleared site data fell back to a layout
     // nobody had chosen.
     ['layout', 'sort', 'size', 'gapX', 'gapY', 'padX', 'padY', 'bgDim', 'bgTint',
-     'titleAlign', 'titleSize', 'font']
+     'titleAlign', 'titleSize', 'font', 'logoHeight', 'groupCols']
       .forEach(function (k) { out.settings[k] = state[k]; });
     api('PUT', '/api/config', out)
       .then(function () { toast('Saved — reloading'); setTimeout(function () { location.reload(); }, 600); })

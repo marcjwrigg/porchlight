@@ -125,6 +125,9 @@ settings:
   layout: flat        # flat | grouped
   sort: az            # az | curated
   font: system        # system | sans | rounded | condensed | serif | mono
+  logo: ''            # image URL, or a filename you uploaded (served from logo/)
+  logoHeight: 48      # px tall; width follows
+  groupCols: 1        # 1 | 2 | 3 - side-by-side groups, grouped layout only
   titleAlign: left    # left | center | right  (only shows if title is set)
   titleSize: 21       # heading size in px
   size: 88            # icon size in px

@@ -3,7 +3,7 @@
 
     GET  /api/config                          -> {ok, config}
     PUT  /api/config                          -> validate, write, rebuild
-    POST /api/asset?kind=icon|bg&name=<file>  -> store an uploaded image
+    POST /api/asset?kind=icon|bg|logo&name=<file>  -> store an uploaded image
 
 Binds **127.0.0.1 only**; nginx is the sole way in.
 
@@ -51,6 +51,7 @@ DATA_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_DIR", HERE.parent))
 CONFIG = pathlib.Path(os.environ.get("PORCHLIGHT_CONFIG", DATA_DIR / "config.yaml"))
 ICON_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_ICONS", DATA_DIR / "icons"))
 BG_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_BG", DATA_DIR / "bg"))
+LOGO_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_LOGO", DATA_DIR / "logo"))
 BACKUP_DIR = pathlib.Path(os.environ.get("PORCHLIGHT_BACKUP", DATA_DIR / "backup"))
 BUILD = HERE / "build.py"
 
@@ -59,7 +60,10 @@ MAX_CONFIG = 512 * 1024
 # Per kind, because they are not the same thing. An icon is a logo and 2 MB is
 # already generous; a background is a photograph and a straight-off-the-camera
 # JPG is routinely 8-15 MB. One shared 4 MB cap rejected real wallpapers.
-MAX_ASSET = {"icon": 2 * 1024 * 1024, "bg": 24 * 1024 * 1024}
+# A logo sits in the header at a few dozen pixels tall, so it wants an icon's
+# budget rather than a wallpaper's.
+MAX_ASSET = {"icon": 2 * 1024 * 1024, "bg": 24 * 1024 * 1024,
+             "logo": 2 * 1024 * 1024}
 KEEP_BACKUPS = 20
 
 SAFE_NAME = re.compile(r"[^a-zA-Z0-9._-]+")
@@ -157,7 +161,7 @@ def validate(cfg):
     # wants to change the groups should not have to restate the whole page.
     fallback = {"title": "", "background": "", "favicon": "",
                 "layout": "flat", "sort": "az", "bgTint": "dark",
-                "titleAlign": "left", "font": "system"}
+                "titleAlign": "left", "font": "system", "logo": ""}
     out_settings = {}
     for key, default in fallback.items():
         val = settings.get(key, default)
@@ -179,7 +183,9 @@ def validate(cfg):
                                  ("gapX", 8, 0, 400), ("gapY", 8, 0, 400),
                                  ("padX", 32, 0, 1200), ("padY", 28, 0, 1200),
                                  ("bgDim", 72, 0, 100),
-                                 ("titleSize", 21, 8, 200)):
+                                 ("titleSize", 21, 8, 200),
+                                 ("logoHeight", 48, 12, 400),
+                                 ("groupCols", 1, 1, 3)):
         raw = size if key == "size" else settings.get(key, default)
         try:
             out_settings[key] = max(lo, min(hi, int(raw)))
@@ -257,6 +263,7 @@ def rebuild():
     env.setdefault("PORCHLIGHT_CONFIG", str(CONFIG))
     env.setdefault("PORCHLIGHT_ICONS", str(ICON_DIR))
     env.setdefault("PORCHLIGHT_BG", str(BG_DIR))
+    env.setdefault("PORCHLIGHT_LOGO", str(LOGO_DIR))
     proc = subprocess.run(
         [sys.executable, str(BUILD)], env=env, capture_output=True, text=True, timeout=180
     )
@@ -326,14 +333,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(404, {"ok": False, "error": "no such endpoint"})
         params = {k: v[0] for k, v in urllib.parse.parse_qs(query).items()}
         kind = params.get("kind", "icon")
-        if kind not in ("icon", "bg"):
-            return self.reply(400, {"ok": False, "error": "kind must be icon or bg"})
+        if kind not in ("icon", "bg", "logo"):
+            return self.reply(
+                400, {"ok": False, "error": "kind must be icon, bg or logo"})
         raw = self.body(MAX_ASSET[kind])
         if raw is None:
             return
         slug, ext = (
+            # Content-hashed for both, so a replacement is a new filename and
+            # the served copy can be cached hard. Two uploads sharing a long
+            # prefix used to collapse onto one name.
             bg_name(params.get("name"), raw)
-            if kind == "bg"
+            if kind in ("bg", "logo")
             else split_upload_name(params.get("name"))
         )
         if ext not in ALLOWED_EXT:
@@ -345,15 +356,15 @@ class Handler(BaseHTTPRequestHandler):
                     f"expected one of {' '.join(sorted(ALLOWED_EXT))}",
                 },
             )
-        target_dir = ICON_DIR if kind == "icon" else BG_DIR
+        target_dir = {"icon": ICON_DIR, "bg": BG_DIR, "logo": LOGO_DIR}[kind]
         target_dir.mkdir(parents=True, exist_ok=True)
         if kind == "icon":
             # One file per slug: an upload replaces whatever extension was there
             # before, so a slug can never resolve to two different images.
             for stale in target_dir.glob(f"{slug}.*"):
                 stale.unlink()
-        if kind == "bg":
-            # One background at a time. Keeping every wallpaper ever tried would
+        if kind in ("bg", "logo"):
+            # One at a time. Keeping every wallpaper or logo ever tried would
             # quietly fill a 4 GB rootfs, and nothing references the old ones.
             for stale in target_dir.iterdir():
                 if stale.is_file():
