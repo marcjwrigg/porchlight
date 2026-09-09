@@ -96,12 +96,54 @@ server {
     root ${PREFIX}/public;
     index index.html;
 
-    # The page is regenerated wholesale on every save and is a few KB. Caching
-    # it guarantees someone stares at a stale grid wondering why their edit did
-    # nothing.
-    add_header Cache-Control "no-store" always;
+    # Compression matters most when the page is reached over a tunnel or a slow
+    # link, where the round trips dominate. SVG marks compress hard.
+    gzip on;
+    gzip_vary on;
+    gzip_comp_level 6;
+    gzip_min_length 512;
+    gzip_types text/html text/css application/javascript application/json image/svg+xml;
+
+    # Caching is per-location on purpose. `add_header` at server level applied
+    # `no-store` to every asset too, so a browser re-fetched every icon - and a
+    # 24 MB background - on each visit. On a LAN that is invisible; through a
+    # tunnel it is the whole of the page load.
+    #
+    # nginx does NOT merge add_header across levels: a location declaring one
+    # discards every inherited one. Each location below therefore sets its own.
+
+    # The page is regenerated wholesale on every save. Caching it guarantees
+    # someone stares at a stale grid wondering why their edit did nothing.
+    location = / {
+        add_header Cache-Control "no-store" always;
+        try_files /index.html =404;
+    }
+    location = /index.html {
+        add_header Cache-Control "no-store" always;
+    }
+
+    # Backgrounds are content-hashed on upload (stem-<sha256>.jpg), so a
+    # different image is a different filename. Safe to pin hard, and these are
+    # by far the largest thing on the page.
+    location /bg/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files \$uri =404;
+    }
+
+    # Icons are named by slug, so --refresh can replace one in place. Revalidate
+    # daily rather than pinning for a year.
+    location /icons/ {
+        add_header Cache-Control "public, max-age=86400" always;
+        try_files \$uri =404;
+    }
+
+    # Changes only when porchlight itself is upgraded.
+    location = /catalog.json {
+        add_header Cache-Control "public, max-age=3600" always;
+    }
 
     location / {
+        add_header Cache-Control "no-store" always;
         try_files \$uri \$uri/ =404;
     }
 
@@ -122,7 +164,16 @@ server {
 CONF
 rm -f /etc/nginx/sites-enabled/default
 ln -sfn /etc/nginx/sites-available/porchlight /etc/nginx/sites-enabled/porchlight
-nginx -t
+# This script has no `set -e`, so the test has to gate the restart explicitly.
+# Restarting on a config nginx has just rejected takes the page down and leaves
+# nothing serving - worse than aborting with the old config still live.
+if ! nginx -t; then
+    echo
+    echo "  nginx rejected the generated config (above). The site link has been"
+    echo "  written but nginx has NOT been restarted, so whatever was serving"
+    echo "  before is still serving. Fix the config and re-run."
+    exit 1
+fi
 
 systemctl daemon-reload
 systemctl enable -q nginx porchlight
