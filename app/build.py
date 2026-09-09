@@ -1270,6 +1270,11 @@ EDITOR_JS = """
     // placeholder rather than a value — a prefilled URL that is wrong for
     // everyone is worse than an empty one.
     var urlHint = pre.port ? 'http://192.168.1.10:' + pre.port : 'https://example.lan';
+    // Saving prunes groups that hold nothing, so a page whose last service was
+    // removed comes back with `groups: []`. The Group <select> was then built
+    // empty, `+select.value` on it is 0, and adding the first service back
+    // crashed on cfg.groups[0]. Guarantee somewhere to put it.
+    if (!cfg.groups.length) cfg.groups.push({ name: 'Services', services: [] });
     var opts = cfg.groups.map(function (g, i) {
       return '<option value="' + i + '"' + (i === gi ? ' selected' : '') + '>' + esc(g.name) + '</option>';
     }).join('');
@@ -1384,6 +1389,10 @@ EDITOR_JS = """
       if (svc.pos != null) out.pos = svc.pos;
       if (!out.name) { toast('A service needs a name'); return; }
       var tgi = +dlg.querySelector('#f-group').value;
+      // Belt and braces: an out-of-range index must not throw away the edit.
+      if (!cfg.groups[tgi]) tgi = 0;
+      if (!cfg.groups[tgi]) cfg.groups[tgi] = { name: 'Services', services: [] };
+      if (!cfg.groups[tgi].services) cfg.groups[tgi].services = [];
       if (isNew) cfg.groups[tgi].services.push(out);
       else if (tgi === gi) cfg.groups[gi].services[si] = out;
       else { cfg.groups[gi].services.splice(si, 1); cfg.groups[tgi].services.push(out); }
