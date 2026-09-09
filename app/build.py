@@ -249,10 +249,35 @@ def main():
             print(f"    !! {slug}: {exc} — falling back to a lettered tile")
     for name, src in (("icons", ICON_DIR), ("bg", BG_DIR)):
         dst = OUT_DIR / name
-        if dst.exists():
-            shutil.rmtree(dst)
-        if src.exists():
-            shutil.copytree(src, dst)
+        if not src.exists():
+            continue
+        # Sync in place rather than rmtree + copytree. Deleting the directory
+        # means a single un-writable one — left behind by, say, a build run as
+        # root when the service runs as its own user — fails *every* later
+        # build with a raw traceback, and the editor surfaces the traceback
+        # instead of saving. That contradicts the rule a few lines up: a
+        # problem with one asset must never cost the whole page.
+        dst.mkdir(parents=True, exist_ok=True)
+        keep = set()
+        for f in sorted(src.iterdir()):
+            if not f.is_file():
+                continue
+            keep.add(f.name)
+            target = dst / f.name
+            try:
+                if (not target.exists()
+                        or f.stat().st_size != target.stat().st_size
+                        or f.stat().st_mtime > target.stat().st_mtime):
+                    shutil.copy2(f, target)
+            except OSError as exc:
+                print(f"    !! {name}/{f.name}: {exc} — keeping the old copy")
+        for f in sorted(dst.iterdir()):
+            if f.name in keep:
+                continue
+            try:
+                f.unlink() if f.is_file() else shutil.rmtree(f)
+            except OSError as exc:
+                print(f"    !! stale {name}/{f.name}: {exc} — left in place")
     print(f"    {len(files)} icons -> {OUT_DIR / 'icons'}")
 
     catalog = write_catalog(refresh or "--prefetch" in sys.argv[1:])
